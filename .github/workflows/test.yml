@@ -1,0 +1,35 @@
+name: API Test Automation
+
+# 触发条件：只要你 push 代码到 main 分支，或者提交了 PR，就自动执行
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+# 定义要做的工作
+jobs:
+  test:
+    # 向 GitHub 租一台最新的 Ubuntu 虚拟机
+    runs-on: ubuntu-latest
+
+    steps:
+      # 步骤1：把你在 GitHub 上的代码拉取到这台虚拟机上
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # 步骤2：设置 Python 环境
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10' # 使用 Python 3.10
+
+      # 步骤3：安装你在 requirements.txt 里写的那些第三方库
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      # 步骤4：运行测试！
+      - name: Run pytest
+        run: pytest
