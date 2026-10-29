@@ -22,7 +22,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.10' # 使用 Python 3.10
+          python-version: '3.12' # 使用 Python 3.12
 
       # 步骤3：安装你在 requirements.txt 里写的那些第三方库
       - name: Install dependencies
