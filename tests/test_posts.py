@@ -1,3 +1,7 @@
+"""
+这是文章模块的测试用例集
+"""
+
 # import requests
 import pytest# 导入pytest，使用其框架
 from jsonschema import validate #这个是用来校验返回的数据字段结构的

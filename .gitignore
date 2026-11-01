@@ -16,3 +16,13 @@ reports/
 # 系统文件
 .DS_Store
 Thumbs.db
+
+# 检查数据库数据的文件
+check_db.py
+
+# 数据库文件（重点！本地测试产生的脏数据绝不外传）
+# ==========================================
+*.db
+*.sqlite
+*.sqlite3
+mock_server/test.db
