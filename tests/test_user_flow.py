@@ -4,9 +4,9 @@ import pytest
 
 #编写测试用例：
 #1、登录的测试用例,因为需要发送请求，所以需要使用到coftest中的夹具api_client
-def test_login(api_client):
-    #注册就需要获取对应的所需信息：用户名以及密码
-    payload = {"username":"ceshi001","password":"123456"}#这里需要确定参数名的准确性
+def test_login(api_client,setup_test_user):
+    #登录就需要获取对应的所需信息：用户名以及密码
+    payload = setup_test_user#这里需要确定参数名的准确性
     #使用api_client发送请求并获取响应结果
     response = api_client.post(url=f"{api_client.base_url}/login",json=payload)
     #断言响应状态码是不是200，判断请求是否成功发送

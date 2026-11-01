@@ -1,5 +1,6 @@
 # 这是一个靶机服务器，包含注册和登录接口
-import sqlite3
+import sqlite3#python自带的一个轻量小型的数据库
+#fastapi：目前 Python 最火的 Web 后端框架。它的特点是代码少、速度极快，而且自带一个极其漂亮的交互式接口文档。
 from fastapi import FastAPI,HTTPException,Header
 from pydantic import BaseModel
 from jose import jwt#这个是用来生成token加密的
