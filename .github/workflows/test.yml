@@ -11,28 +11,42 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # 1. 拉取代码
       - name: Checkout code
         uses: actions/checkout@v4
 
+      # 2. 配置 Python
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
 
+      # 3. 安装依赖
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      # 🌟 核心步骤：启动云端靶机（绝对不能再少这步了！）
-      - name: Start Mock Server
+      # 4. 启动靶机 + 健康检查 + 跑测试（合并在同一个步骤里）
+      - name: Start Server and Run Tests
         run: |
+          # 进入后端目录并启动服务器，放到后台运行，日志输出到 uvicorn.log
           cd mock_server
-          # nohup 确保即使当前终端结束，后台服务也不会死掉
           nohup uvicorn mock_server:app --port 8080 > uvicorn.log 2>&1 &
-          # 睡眠 5 秒，给服务器充足的时间准备数据库
-          sleep 5
-
-      # 🎯 只跑用户流测试
-      - name: Run pytest
-        run: pytest tests/test_user_flow.py -v
+          
+          # 回到项目根目录
+          cd ..
+          
+          # 使用 curl 探测服务器是否存活，最多等 10 秒
+          echo "正在等待服务器启动..."
+          for i in {1..10}; do
+            if curl -s http://127.0.0.1:8080/docs > /dev/null; then
+              echo "✅ 靶机启动成功！"
+              break
+            fi
+            echo "等待中... ($i/10)"
+            sleep 1
+          done
+          
+          # 执行测试
+          pytest tests/test_user_flow.py -v
