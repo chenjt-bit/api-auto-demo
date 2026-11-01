@@ -2,6 +2,9 @@
 #因为是测试用例，使用pytest框架，所以需要导入pytest库
 import pytest
 
+#给整个文件打上标签mark
+pytestmark = pytest.mark.user
+
 #编写测试用例：
 #1、登录的测试用例,因为需要发送请求，所以需要使用到coftest中的夹具api_client
 def test_login(api_client,setup_test_user):
