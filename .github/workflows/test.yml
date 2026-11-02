@@ -32,7 +32,7 @@ jobs:
         run: |
           # 进入后端目录并启动服务器，放到后台运行，日志输出到 uvicorn.log
           cd mock_server
-          nohup uvicorn mock_server:app --port 8080 > uvicorn.log 2>&1 &
+          nohup uvicorn mock_server:app --port 8081 > uvicorn.log 2>&1 &
           
           # 回到项目根目录
           cd ..
