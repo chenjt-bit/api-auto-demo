@@ -49,4 +49,4 @@ jobs:
           done
           
           # 执行测试
-          pytest tests/test_user_flow.py -v
+          pytest tests/ecommerce/test_ecommerce.py -v

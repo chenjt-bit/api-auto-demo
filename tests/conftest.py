@@ -1,7 +1,8 @@
 import pytest
 import requests
-from config.settings import BASE_URL,CONNECT_TIMEOUT,READ_TIMEOUT
+from config.settings import BASE_URL,CONNECT_TIMEOUT,READ_TIMEOUT,accounts
 
+#api_client:api（接口）client（用户端）：这个夹具负责所有接口请求的发送
 @pytest.fixture(scope="session")# 装饰器
 def api_client():
     # 1. 准备阶段：创建一个 Session 对象
@@ -57,3 +58,37 @@ def setup_test_user(api_client):
         pytest.fail(f"❌ 测试前置失败！注册接口异常，状态码: {response.status_code}")
 
     return payload
+
+#创建一个real_server服务的注册夹具，并把注册时的信息返回
+@pytest.fixture(scope="session")
+def setup_user_real(api_client):
+    #做一个前置判断
+    payload = accounts["user"]
+    response = api_client.post(f"{api_client.base_url}/register",json=payload)
+    #需要对这次请求做一个判断，以防注册失败时没有发现bug
+    if response.status_code == 200:
+        print("注册成功！")
+    elif response.status_code == 400:
+        print("用户已注册")
+    else:print("服务端错误")
+
+    return payload
+
+#将获取token的操作打包成一个函数（通过角色获取）
+def get_token_by_role(api_client,role):
+    #accounts是一个字典数据，里面有俩个字典数据一个是admin，一个是普通用户
+    payload = accounts[role]
+    response = api_client.post(f"{api_client.base_url}/login",json=payload)
+    assert response.status_code == 200
+    body = response.json()
+    return body["access_token"]
+
+@pytest.fixture(scope="module") # 建议用 module 而不是 session，防止过期
+def admin_headers(api_client):
+    token = get_token_by_role(api_client, "admin")
+    return {"Authorization": f"Bearer {token}"}
+
+@pytest.fixture(scope="module")
+def user_headers(api_client):
+    token = get_token_by_role(api_client, "user")
+    return {"Authorization": f"Bearer {token}"}
