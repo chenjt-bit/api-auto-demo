@@ -40,7 +40,7 @@ jobs:
           # 使用 curl 探测服务器是否存活，最多等 10 秒
           echo "正在等待服务器启动..."
           for i in {1..10}; do
-            if curl -s http://127.0.0.1:8080/docs > /dev/null; then
+            if curl -s http://127.0.0.1:8081/docs > /dev/null; then
               echo "✅ 靶机启动成功！"
               break
             fi
