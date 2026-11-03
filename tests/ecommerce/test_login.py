@@ -6,8 +6,8 @@ from config.settings import accounts
 pytestmark = pytest.mark.ecommerce_login
 
 # 测试普通用户正确账号与密码登录成功，断言状态码为200以及token
-def test_user_login(api_client,dynatic_user_account):
-    payload = dynatic_user_account
+def test_user_login(api_client,dynamic_user_account):
+    payload = dynamic_user_account
     response = api_client.post(f"{api_client.base_url}/login",json=payload)
 
     assert response.status_code == 200
@@ -16,8 +16,8 @@ def test_user_login(api_client,dynatic_user_account):
     assert isinstance(token,str) and len(token)>0
 
 # 测试普通用户密码错误
-def test_user_login_with_wrong_pwd(api_client,dynatic_user_account):
-    name = dynatic_user_account["username"]
+def test_user_login_with_wrong_pwd(api_client,dynamic_user_account):
+    name = dynamic_user_account["username"]
     payload = {"username":name,"password":"123"}#正确密码是123456
     response = api_client.post(f"{api_client.base_url}/login",json=payload)
 
@@ -40,8 +40,8 @@ def test_login_with_empty_payloay(api_client):
     assert response.status_code == 422
 
 # 测试账号前后有空格
-def test_login_empty_ahead_name(api_client,dynatic_user_account):
-    name = " " + dynatic_user_account["username"]
+def test_login_empty_ahead_name(api_client,dynamic_user_account):
+    name = " " + dynamic_user_account["username"]
     payload = {"username":name,"password":"123456"}
     response = api_client.post(f"{api_client.base_url}/login",json=payload)
 
