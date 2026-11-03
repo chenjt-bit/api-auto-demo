@@ -49,4 +49,4 @@ jobs:
           done
           
           # 执行测试
-          pytest tests/ecommerce/test_ecommerce.py -v
+          pytest tests/ecommerce/ -v

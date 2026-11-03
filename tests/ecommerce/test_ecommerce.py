@@ -16,13 +16,14 @@ from config.settings import accounts,db_path
 
 pytestmark = pytest.mark.ecommerce
 # 1、测试登录普通用户
-def test_login_user(api_client,setup_user_real):
+def test_login_user(api_client):
     #获取登录数据
-    payload = setup_user_real
+    payload = accounts["user"]
     response = api_client.post(f"{api_client.base_url}/login",json=payload)
     #断言响应状态码，登录成功会获取token，断言token数据类型
     assert response.status_code == 200
-    #assert response.json()["access_token"]
+    token = response.json()["access_token"]
+    assert isinstance(token,str) and len(token)>0
     
 #2、测试登录admin管理员
 def test_login_admin(api_client):
