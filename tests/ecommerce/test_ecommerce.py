@@ -16,7 +16,7 @@ from config.settings import accounts,db_path
 
 pytestmark = pytest.mark.ecommerce
 # 1、测试登录普通用户
-def test_login_user(api_client,dymatic_user_account):
+def test_login_user(api_client,dynatic_user_account):
     #获取登录数据
     payload = dymatic_user_account
     response = api_client.post(f"{api_client.base_url}/login",json=payload)
