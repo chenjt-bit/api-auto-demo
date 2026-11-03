@@ -4,8 +4,7 @@
 BASE_URL = "http://127.0.0.1:8081"
 db_path = "mock_server/ecommerce.db"
 accounts = {
-        "admin": {"username": "admin", "password": "admin123"},
-        "user": {"username": "user001", "password": "123456"}
+        "admin": {"username": "admin", "password": "admin123"}
     }
 CONNECT_TIMEOUT = 3  # 敲门等 3 秒
 READ_TIMEOUT = 10    # 读数据等 10 秒

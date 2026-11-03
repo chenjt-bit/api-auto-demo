@@ -45,4 +45,4 @@ def test_login_empty_ahead_name(api_client):
     payload = {"username":name,"password":"123456"}
     response = api_client.post(f"{api_client.base_url}/login",json=payload)
 
-    assert response.status_code == 200
+    assert response.status_code == 401

@@ -17,11 +17,11 @@ def db_message():
     conn.close()
 
 # ecommerce_items_001:有效Token成功发布商品
-def test_items_check_token(api_client,user_headers_new,db_message):
+def test_items_check_token(api_client,user_headers,db_message):
     # 准备商品数据
     unique_name = f"toyBear_{int(time.time())}"
     payload = {"name":unique_name,"price":18.5}
-    response = api_client.post(f"{api_client.base_url}/items",json=payload,headers = user_headers_new)
+    response = api_client.post(f"{api_client.base_url}/items",json=payload,headers = user_headers)
 
     assert response.status_code == 200
     #检查数据库

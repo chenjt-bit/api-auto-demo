@@ -74,10 +74,6 @@ def admin_headers(api_client):
     token = get_token_by_role(api_client, "admin")
     return {"Authorization": f"Bearer {token}"}
 
-@pytest.fixture(scope="module")
-def user_headers(api_client):
-    token = get_token_by_role(api_client, "user")
-    return {"Authorization": f"Bearer {token}"}
 
 #1.
 #先写一个专门生成动态账号的夹具
@@ -97,7 +93,7 @@ def dynamic_user_account(api_client):
 
 # 2. 改造你的 user_headers 夹具，让它依赖刚才生成的账号
 @pytest.fixture(scope="module")
-def user_headers_new(api_client, dynamic_user_account):
+def user_headers(api_client, dynamic_user_account):
     """用刚才动态注册的账号去登录，获取 Token"""
     res = api_client.post(f"{api_client.base_url}/login", json=dynamic_user_account)
     assert res.status_code == 200, "前置登录失败，拿不到Token"
