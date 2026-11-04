@@ -40,7 +40,7 @@ def test_items_check_token(ecommerce_item_api,user_headers,db_message):
     
 #测试参数化
 # 读取yaml数据文件
-item_test_data = yaml.safe_load(open("data/ecommerce_items.yaml","r",enconding="utf-8"))
+item_test_data = yaml.safe_load(open("data/ecommerce_items.yaml","r",encoding="utf-8"))
 @pytest.mark.parametrize("data",item_test_data)
 def test_create_item_with_different_price(ecommerce_item_api,user_headers,data):
     payload = {
