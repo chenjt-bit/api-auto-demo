@@ -27,7 +27,7 @@ def test_items_check_token(ecommerce_item_api,user_headers,db_message):
     # 准备商品数据
     unique_name = f"toyBear_{int(time.time())}"
     payload = {"name":unique_name,"price":18.5}
-    response = ecommerce_item_api.post_items(payload)
+    response = ecommerce_item_api.post_items(payload,headers=user_headers)
 
     assert response.status_code == 200
     #检查数据库
@@ -47,6 +47,6 @@ def test_create_item_with_different_price(ecommerce_item_api,user_headers,data):
         "name":f"{data["name"]}_{int(time.time())}",
         "price":data["price"]
     }
-    response = ecommerce_item_api.post_items(payload)
+    response = ecommerce_item_api.post_items(payload,headers=user_headers)
     
     assert response.status_code == data["expected_code"]
