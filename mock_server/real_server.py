@@ -7,6 +7,45 @@ from jose import jwt
 
 app = FastAPI(title="真实电商靶机")
 
+#🌟 新增：每次服务启动时，自动建库建表！
+
+def init_db():
+    try:
+        # 先连一个空的库，用来建库
+        conn = pymysql.connect(host="127.0.0.1", port=3307, user="root", password="123456")
+        cursor = conn.cursor()
+        cursor.execute("CREATE DATABASE IF NOT EXISTS ecommerce DEFAULT CHARSET utf8mb4;")
+        cursor.execute("USE ecommerce;")
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS users (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                username VARCHAR(50) UNIQUE,
+                password VARCHAR(50),
+                role VARCHAR(20)
+            )
+        ''')
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS items (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                name VARCHAR(50),
+                price FLOAT,
+                owner_id INT
+            )
+        ''')
+
+        # 预置 admin（用 INSERT IGNORE 防止重复报错）
+        cursor.execute("INSERT IGNORE INTO users (username, password, role) VALUES ('admin', 'admin123', 'admin')")
+        conn.commit()
+        cursor.close()
+        conn.close()
+        print("✅ 数据库初始化完成")
+    except Exception as e:
+        print(f"❌ 数据库初始化失败: {e}")
+
+
+# 启动时执行初始化
+init_db()
+
 # 封装一个获取数据库连接的函数，方便复用
 def get_db():
     return pymysql.connect(

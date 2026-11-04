@@ -56,11 +56,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      # 步骤 4：初始化 MySQL 数据库（建表 + 插入 admin 账号）
-      - name: Init MySQL Database
-        run: python init_mysql.py
-
-      # 步骤 5：启动靶机后端服务
+      # 步骤 4：启动靶机后端服务
       - name: Start Server
         run: |
           cd mock_server
@@ -75,14 +71,14 @@ jobs:
             sleep 1
           done
 
-      # 步骤 6：执行测试（允许失败，为了看后面的日志）
+      # 步骤 5：执行测试（允许失败，为了看后面的日志）
       - name: Run Pytest
         id: run_pytest
         continue-on-error: true
         run: |
           pytest tests/ecommerce/ -v
 
-      # 步骤 7：强制打印后端日志！
+      # 步骤 6：强制打印后端日志！
       - name: Print Backend Log
         if: always()
         run: |
@@ -90,6 +86,11 @@ jobs:
           echo "========= 后端的真实运行日志 ========="
           echo "=========================================="
           cat mock_server/uvicorn.log
+      
+      # 步骤 7：如果测试真的失败了，让流水线变红
+      - name: Fail if tests failed
+        if: steps.run_pytest.outcome == 'failure'
+        run: exit 1
 
       # 步骤 8：生成 Allure 报告
       # 注意：if: always() 表示不管测试跑没跑绿，都要生成报告（方便排查 Bug）
