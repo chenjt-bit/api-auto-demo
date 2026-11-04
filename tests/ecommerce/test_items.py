@@ -1,5 +1,5 @@
 # 测试添加商品模块的自动化测试用例
-
+import allure
 import pytest
 import sqlite3
 import time
@@ -22,21 +22,33 @@ def db_message():
 def ecommerce_item_api(api_client):
     return eCommerceItemApi(api_client)
 
+# 1. 标记它属于哪个大业务模块
+@allure.feature("电商-商品模块")
+# 2. 标记它属于哪个子场景
+@allure.story("正向业务流")
+# 3. 标记它的严重级别（Blocker最严重，Minor最轻微）
+@allure.severity(allure.severity_level.CRITICAL)
+# 4. 覆盖原生的英文函数名，改成极其专业的中文标题
+@allure.title("验证有效 Token 能成功发布商品，并校验数据库落库")
 # ecommerce_items_001:有效Token成功发布商品
 def test_items_check_token(ecommerce_item_api,user_headers,db_message):
     # 准备商品数据
     unique_name = f"toyBear_{int(time.time())}"
     payload = {"name":unique_name,"price":18.5}
-    response = ecommerce_item_api.post_items(payload,headers=user_headers)
+    # 5. 给操作步骤加上“剧本台词”
+    with allure.step("步骤1：发送 POST 请求发布商品"):
+        response = ecommerce_item_api.post_items(payload, headers=user_headers)
+        assert response.status_code == 200
 
-    assert response.status_code == 200
     #检查数据库
-    db_message.execute("select id,name,price from items where name = ?",(unique_name,))
-    db_result = db_message.fetchone()
-    #断言数据库查询结果不是空的
-    assert db_result is not None
-    assert db_result[1] == unique_name
-    assert db_result[2] == payload["price"]
+    with allure.step("步骤2：连接数据库，断言商品是否真实落库"):
+        db_message.execute("select id,name,price from items where name = ?", (unique_name,))
+        db_result = db_message.fetchone()
+        # 断言数据库查询结果不是空的
+        assert db_result is not None
+        assert db_result[1] == unique_name
+        assert db_result[2] == payload["price"]
+
     
 #测试参数化
 # 读取yaml数据文件

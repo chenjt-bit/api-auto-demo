@@ -50,3 +50,24 @@ jobs:
           
           # 执行测试
           pytest tests/ecommerce/ -v
+
+       # 🌟 生成 Allure 报告
+      - name: Generate Allure Report
+        if: always() # 无论测试成功失败都执行
+        run: |
+          # 下载 Allure 工具包
+          wget https://github.com/allure-framework/allure2/releases/download/2.27.0/allure-2.27.0.tgz
+          tar -zxvf allure-2.27.0.tgz
+          sudo mv allure-2.27.0 /opt/allure
+          sudo ln -s /opt/allure/bin/allure /usr/local/bin/allure
+          
+          # 将结果数据变成静态网页
+          allure generate ./allure-results -o ./allure-report --clean
+
+      # 🌟 上传网页报告到 GitHub
+      - name: Upload Allure Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: allure-report
+          path: ./allure-report
