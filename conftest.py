@@ -1,12 +1,12 @@
 import pytest
-import request
+import requests
 from config.settings import BASE_URL,CONNECT_TIMEOUT,READ_TIMEOUT,accounts
 
 #api_client:api（接口）client（用户端）：这个夹具负责所有接口请求的发送
 @pytest.fixture(scope="session")
 def api_client():
     # 1. 准备阶段：创建一个 Session 对象
-    session = request.Session()
+    session = requests.Session()
     session.headers.update({"Accept": "application/json"})
     
     session.base_url = BASE_URL
