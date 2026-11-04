@@ -26,3 +26,12 @@ check_db.py
 *.sqlite
 *.sqlite3
 mock_server/test.db
+
+.env
+.env.*
+!.env.example
+
+# 忽略测试报告和原始数据
+allure-results/
+allure-report/
+reports/

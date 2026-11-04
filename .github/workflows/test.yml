@@ -9,6 +9,10 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    env:
+      ENV: test
+      BASE_URL: http://127.0.0.1:8081
+      DB_PATH: mock_server/ecommerce.db
 
     steps:
       # 1. 拉取代码
