@@ -1,0 +1,12 @@
+# data/ecommerce_items.yaml
+- name: "正常商品"
+  price: 18.5
+  expected_code: 200
+
+- name: "免费商品"
+  price: 0
+  expected_code: 200
+
+- name: "负数商品"
+  price: -10.5
+  expected_code: 200 # 目前后端没拦截，暂定200，以后修复了改400

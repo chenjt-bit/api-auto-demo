@@ -3,7 +3,9 @@
 import pytest
 import sqlite3
 import time
+import yaml
 from config.settings import db_path
+from api.ecommerce_item_api import eCommerceItemApi
 
 pytestmark = pytest.mark.ecommerce_items
 
@@ -16,12 +18,16 @@ def db_message():
     cursor.close()
     conn.close()
 
+@pytest.fixture
+def ecommerce_item_api(api_client):
+    return eCommerceItemApi(api_client)
+
 # ecommerce_items_001:有效Token成功发布商品
-def test_items_check_token(api_client,user_headers,db_message):
+def test_items_check_token(ecommerce_item_api,user_headers,db_message):
     # 准备商品数据
     unique_name = f"toyBear_{int(time.time())}"
     payload = {"name":unique_name,"price":18.5}
-    response = api_client.post(f"{api_client.base_url}/items",json=payload,headers = user_headers)
+    response = ecommerce_item_api.post_items(payload)
 
     assert response.status_code == 200
     #检查数据库
@@ -31,3 +37,16 @@ def test_items_check_token(api_client,user_headers,db_message):
     assert db_result is not None
     assert db_result[1] == unique_name
     assert db_result[2] == payload["price"]
+    
+#测试参数化
+# 读取yaml数据文件
+item_test_data = yaml.safe_load(open("data/ecommerce_items.yaml","r",enconding="utf-8"))
+@pytest.mark.parametrize("data",item_test_data)
+def test_create_item_with_different_price(ecommerce_item_api,user_headers,data):
+    payload = {
+        "name":f"{data["name"]}_{int(time.time())}",
+        "price":data["price"]
+    }
+    response = ecommerce_item_api.post_items(payload)
+    
+    assert response.status_code == data["expected_code"]

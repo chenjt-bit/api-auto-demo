@@ -1,0 +1,1 @@
+{"uuid": "259ac9df-ad76-4568-a0b2-7bbd5e48ac44", "children": ["f3537f17-f87e-4fe6-b6f6-81e796edf34b"], "befores": [{"name": "ecommerce_login_api", "status": "passed", "start": 1793785321035, "stop": 1793785321035}], "afters": [{"name": "ecommerce_login_api::<lambda>", "start": 1793785321038}], "start": 1793785321035, "stop": 1793785321039}
