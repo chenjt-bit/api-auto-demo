@@ -3,7 +3,6 @@ import allure
 import pytest
 import time
 import yaml
-from config.settings import DB_PATH
 from api.ecommerce_item_api import eCommerceItemApi
 
 pytestmark = pytest.mark.ecommerce_items

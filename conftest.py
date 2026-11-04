@@ -2,7 +2,7 @@ import pytest
 import requests
 import pymysql
 from pymysql.cursors import DictCursor
-from config.settings import BASE_URL,CONNECT_TIMEOUT,READ_TIMEOUT,accounts,DB_PATH,DB_PASSWORD
+from config.settings import BASE_URL,CONNECT_TIMEOUT,READ_TIMEOUT
 
 #api_client:api（接口）client（用户端）：这个夹具负责所有接口请求的发送
 @pytest.fixture(scope="session")
@@ -30,7 +30,7 @@ def db_message():
         host="127.0.0.1",
         port=3307,
         user="root",
-        password=DB_PASSWORD,
+        password="123456",
         database="ecommerce",  # 这里我们需要在 MySQL 里建个库
         cursorclass=DictCursor  # 返回字典格式
     )

@@ -1,5 +1,6 @@
 name: API Test Automation
 
+# 触发条件：当推送代码到 main 分支，或向 main 分支提交 PR 时自动运行
 on:
   push:
     branches: [ "main" ]
@@ -8,70 +9,108 @@ on:
 
 jobs:
   test:
+    # 指定使用 GitHub 提供的最新的 Ubuntu 虚拟机
     runs-on: ubuntu-latest
+
+    # 🌟 核心魔法 1：在云端自动拉起一个真实的 MySQL 容器
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: 123456
+          MYSQL_DATABASE: ecommerce
+        # 将容器的 3306 端口映射到宿主机的 3307 端口（与你本地 Docker 保持一致）
+        ports:
+          - 3307:3306
+        # 健康检查：GitHub 会反复执行 mysqladmin ping，直到 MySQL 彻底初始化完成，才会执行后面的步骤
+        options: >-
+          --health-cmd="mysqladmin ping -h localhost -p123456"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+    # 🌟 核心魔法 2：注入全局环境变量（代替你本地的 .env 文件）
+    # 这样你的 Python 代码无论是在本地还是云端，都能通过 os.getenv() 读取到统一配置
     env:
-      ENV: test
+      ENV: dev
       BASE_URL: http://127.0.0.1:8081
-      DB_PATH: mock_server/ecommerce.db
+      DB_HOST: 127.0.0.1
+      DB_PORT: 3307
+      DB_USER: root
+      DB_PASSWORD: 123456
 
     steps:
-      # 1. 拉取代码
+      # 步骤 1：拉取你的代码到云端虚拟机
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # 2. 配置 Python
+      # 步骤 2：配置 Python 运行环境
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
 
-      # 3. 安装依赖
+      # 步骤 3：安装 requirements.txt 里的所有依赖包
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      # 4. 启动靶机 + 健康检查 + 跑测试（合并在同一个步骤里）
+      # 步骤 4：初始化 MySQL 数据库（建表 + 插入 admin 账号）
+      - name: Init MySQL Database
+        run: python init_mysql.py
+
+      # 步骤 5：启动靶机后端服务 -> 等待就绪 -> 执行 Pytest 测试
       - name: Start Server and Run Tests
         run: |
-          # 进入后端目录并启动服务器，放到后台运行，日志输出到 uvicorn.log
+          # 进入后端目录，使用 nohup 在后台启动 Uvicorn，输出日志到 uvicorn.log
           cd mock_server
           nohup uvicorn real_server:app --port 8081 > uvicorn.log 2>&1 &
           
-          # 回到项目根目录
+          # 退回到项目根目录，确保 pytest 找得到测试代码
           cd ..
           
-          # 使用 curl 探测服务器是否存活，最多等 10 秒
+          # 健康检查：循环请求后端的 /docs 接口，最多等 10 秒
           echo "正在等待服务器启动..."
+          SERVER_UP=0
           for i in {1..10}; do
             if curl -s http://127.0.0.1:8081/docs > /dev/null; then
               echo "✅ 靶机启动成功！"
+              SERVER_UP=1
               break
             fi
             echo "等待中... ($i/10)"
             sleep 1
           done
           
-          # 执行测试
+          # 如果等了 10 秒后端还没起来，说明后端代码有 Bug 崩溃了，打印日志并强制失败
+          if [ $SERVER_UP -eq 0 ]; then
+            echo "❌ 靶机启动失败！打印后端日志："
+            cat mock_server/uvicorn.log
+            exit 1
+          fi
+          
+          # 后端就绪，开始跑电商模块的测试，并生成 Allure 原始数据
           pytest tests/ecommerce/ -v
 
-       # 🌟 生成 Allure 报告
+      # 步骤 6：生成 Allure 报告
+      # 注意：if: always() 表示不管测试跑没跑绿，都要生成报告（方便排查 Bug）
       - name: Generate Allure Report
-        if: always() # 无论测试成功失败都执行
+        if: always()
         run: |
-          # 下载 Allure 工具包
+          # 下载 Allure 命令行工具
           wget https://github.com/allure-framework/allure2/releases/download/2.27.0/allure-2.27.0.tgz
           tar -zxvf allure-2.27.0.tgz
           sudo mv allure-2.27.0 /opt/allure
           sudo ln -s /opt/allure/bin/allure /usr/local/bin/allure
           
-          # 将结果数据变成静态网页
+          # 将 allure-results 里的原始数据转换成精美的 HTML 网页报告
           allure generate ./allure-results -o ./allure-report --clean
 
-      # 🌟 上传网页报告到 GitHub
+      # 步骤 7：将 HTML 报告打包，上传到 GitHub 页面供下载
       - name: Upload Allure Report
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: allure-report
+          name: allure-test-report
           path: ./allure-report
