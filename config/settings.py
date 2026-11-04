@@ -14,7 +14,8 @@ load_dotenv(f".env.{current_env}", override=True)
 
 # 3. 把配置读取到系统变量里
 BASE_URL = os.getenv("BASE_URL")
-db_path = os.getenv("DB_PATH")
+DB_PATH = os.getenv("DB_PATH")
+DB_PASSWORD = os.getenv("DB_PASSWORD")
 CONNECT_TIMEOUT = 3
 READ_TIMEOUT = 10
 
