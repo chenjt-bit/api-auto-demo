@@ -1,14 +1,28 @@
 import pymysql
 from pymysql.cursors import DictCursor
+from dbutils.pooled_db import PooledDB  # 🌟 1. 导入连接池
 import time
 from fastapi import FastAPI, HTTPException, Header
 from pydantic import BaseModel,Field
 from jose import jwt
 
 app = FastAPI(title="真实电商靶机")
-
+# 🌟 2. 初始化全局连接池
+# 这个池子会在服务器启动时只执行一次
+POOL = PooledDB(
+    creator=pymysql,      # 指定用哪个库建连接
+    maxconnections=20,    # 最大连接数（超出这个数，后面的请求会排队等）
+    mincached=5,          # 初始化时，先建 5 个空连接备用
+    blocking=True,        # 连接池满了之后，是否阻塞等待（True = 排队，False = 直接报错）
+    ping=1,               # 每次借出连接时，先 ping 一下，保证连接是活的
+    host="127.0.0.1",     # 👈 注意换成你自己的 MySQL 配置
+    port=3307,
+    user="root",
+    password="123456",
+    database="ecommerce",
+    cursorclass=DictCursor
+)
 #🌟 新增：每次服务启动时，自动建库建表！
-
 def init_db():
     try:
         # 先连一个空的库，用来建库
@@ -48,10 +62,9 @@ init_db()
 
 # 封装一个获取数据库连接的函数，方便复用
 def get_db():
-    return pymysql.connect(
-        host="127.0.0.1", port=3307, user="root", password="123456",
-        database="ecommerce", cursorclass=DictCursor
-    )
+    # 🌟 3. 不再新建连接，而是从池子里“借”一个
+    return POOL.connection()
+
 # ================= 数据模型 =================
 class UserBase(BaseModel):
     username: str
