@@ -8,9 +8,9 @@ on:
     branches: [ "main" ]
 
 jobs:
-  permissions:
-  contents: write # 🌟 允许流水线向仓库写文件
   test:
+    permissions:
+      contents: write # 🌟 允许流水线向仓库写文件
     # 指定使用 GitHub 提供的最新的 Ubuntu 虚拟机
     runs-on: ubuntu-latest
 
