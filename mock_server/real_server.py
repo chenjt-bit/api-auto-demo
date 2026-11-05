@@ -2,7 +2,7 @@ import pymysql
 from pymysql.cursors import DictCursor
 import time
 from fastapi import FastAPI, HTTPException, Header
-from pydantic import BaseModel
+from pydantic import BaseModel,Field
 from jose import jwt
 
 app = FastAPI(title="真实电商靶机")
@@ -59,7 +59,7 @@ class UserBase(BaseModel):
 
 
 class ItemBase(BaseModel):
-    name: str
+    name: str = Field(..., max_length=50)
     price: float
 
 
@@ -124,8 +124,70 @@ def create_item(item: ItemBase, token_info: str = Header(None, alias="Authorizat
     conn.close()
     return {"msg": "发布成功", "item_id": new_id}
 
+# 4、查询商品（显示全部商品）
+@app.get("/items")
+def get_items(token_info: str = Header(None, alias="Authorization")):
+    #鉴权token,没登录不给查
+    user_data = verify_token(token_info)
+    # 连接数据库
+    conn = get_db()
+    cursor = conn.cursor()
 
-# 4. 查所有用户（只有 admin 能查，测试垂直越权！）
+    # 2. 核心 SQL：联表查询（JOIN）
+    # 这里我们把 items 表和 users 表连起来，查出商品信息和发布者的名字
+    sql = """
+            SELECT items.id, items.name, items.price, users.username AS owner 
+            FROM items 
+            JOIN users ON items.owner_id = users.id
+            ORDER BY items.id DESC
+        """
+    cursor.execute(sql)
+    # 3. 获取所有数据（因为你配置了 DictCursor，这里直接返回的就是字典列表）
+    items_list = cursor.fetchall()
+
+    cursor.close()
+    conn.close()
+
+    # 4. 返回 JSON 响应
+    return {"code": 200, "msg": "查询成功", "data": items_list}
+
+# 5.根据商品id删除指定商品
+@app.delete("/items/{item_id}")
+def delete_item(item_id: int, token_info: str = Header(None, alias="Authorization")):
+    #鉴权token并解析当前登录的人的id
+    user_data = verify_token(token_info)
+    current_user_id = user_data["user_id"]
+    user_role = user_data["role"]
+
+    conn = get_db()
+    cursor = conn.cursor()
+
+    # 2. 先查一下这个商品到底存不存在
+    cursor.execute("SELECT owner_id FROM items WHERE id = %s", (item_id,))
+    item = cursor.fetchone()
+
+    if not item:
+        cursor.close()
+        conn.close()
+        raise HTTPException(status_code=404, detail="商品不存在")
+
+    # 3. 核心防越权逻辑：判断商品的主人，是不是当前登录人
+    # 注意：如果是管理员 (admin)，则允许删除任何商品（企业级常见逻辑）
+    if item["owner_id"] != current_user_id and user_role != "admin":
+        cursor.close()
+        conn.close()
+        # 如果不是自己的，也不是管理员，直接拒绝（403）
+        raise HTTPException(status_code=403, detail="越权警告：你没有权限删除别人的商品！")
+
+    # 4. 权限校验通过，执行删除
+    cursor.execute("DELETE FROM items WHERE id = %s", (item_id,))
+    conn.commit()
+    cursor.close()
+    conn.close()
+
+    return {"code": 200, "msg": "删除成功"}
+
+# 6. 查所有用户（只有 admin 能查，测试垂直越权！）
 @app.get("/admin/users")
 def get_all_users(token_info: str = Header(None, alias="Authorization")):
     user_data = verify_token(token_info)
@@ -138,3 +200,4 @@ def get_all_users(token_info: str = Header(None, alias="Authorization")):
     users = [{"id": u["id"], "username": u["username"], "role": u["role"]} for u in cursor.fetchall()]
     conn.close()
     return users
+

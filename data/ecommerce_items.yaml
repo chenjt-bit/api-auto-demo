@@ -10,3 +10,23 @@
 - name: "负数商品"
   price: -10.5
   expected_code: 200 # 目前后端没拦截，暂定200，以后修复了改400
+
+- case_name: "正常价格商品"
+  name: "正常商品"
+  price: 18.5
+  expected_code: 200
+
+- case_name: "超长商品名称"
+  name: "这是超长名字这是超长名字这是超长名字这是超长名字这是超长名字这是超长名字这是超长名字这是超长名字这是超长名字这是超长名字这是超长名字这是超长名字" # 如果数据库是 VARCHAR(50)，这里应该会报错（500）
+  price: 10.0
+  expected_code: 422 # 如果字段够长就是200，超过限制数返回422
+
+- case_name: "空商品名称"
+  name: ""
+  price: 10.0
+  expected_code: 200 # 看你后端要不要拦截
+
+- case_name: "表情符号商品"
+  name: "🔥爆款🔥"
+  price: 10.0
+  expected_code: 200 # 看看你的 MySQL 字符集 (utf8mb4) 能不能存下 emoji

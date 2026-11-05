@@ -42,3 +42,28 @@ def user_headers(api_client, dynamic_user_account):
 
     token = res.json()["access_token"]
     return {"Authorization": f"Bearer {token}"}
+
+
+@pytest.fixture
+def create_user_and_get_headers(api_client):
+    """
+    工厂夹具：调用一次，就动态注册一个新用户并返回其 headers
+    """
+    def _create_user():
+        # 每次调用生成毫秒级时间戳，确保账号永不重复
+        unique_name = f"user_{int(time.time() * 1000)}"
+        password = "123456"
+        # 1. 注册
+        reg_res = api_client.post(f"{api_client.base_url}/register",
+                                  json={"username": unique_name, "password": password})
+        # 允许 200（注册成功）或 400（可能极小概率重复）
+        assert reg_res.status_code in [200, 400]
+        # 2. 登录获取 Token
+        login_res = api_client.post(f"{api_client.base_url}/login",
+                                   json={"username": unique_name, "password": password})
+        assert login_res.status_code == 200
+        token = login_res.json()["access_token"]
+        # 3. 返回组装好的请求头
+        return {"Authorization": f"Bearer {token}"}
+
+    return _create_user
