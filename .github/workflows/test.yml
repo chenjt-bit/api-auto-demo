@@ -8,6 +8,8 @@ on:
     branches: [ "main" ]
 
 jobs:
+  permissions:
+  contents: write # 🌟 允许流水线向仓库写文件
   test:
     # 指定使用 GitHub 提供的最新的 Ubuntu 虚拟机
     runs-on: ubuntu-latest
@@ -105,6 +107,8 @@ jobs:
           
           # 将 allure-results 里的原始数据转换成精美的 HTML 网页报告
           allure generate ./allure-results -o ./allure-report --clean
+          # 🌟 新增这一行：创建 .nojekyll 文件，阻止 GitHub 篡改你的样式
+          touch ./allure-report/.nojekyll
 
       # 步骤 9：将 HTML 报告打包，上传到 GitHub 页面供下载
       - name: Upload Allure Report
@@ -113,3 +117,13 @@ jobs:
         with:
           name: allure-test-report
           path: ./allure-report
+      
+      # 🌟 核心新增：将 Allure 报告部署到 GitHub Pages
+      - name: Deploy to GitHub Pages
+        if: always() # 即使测试挂了，也要更新网页上的报告，方便排查
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./allure-report # 告诉它你要发布的网页文件夹是哪个
+          publish_branch: gh-pages     # 告诉它把网页推到 gh-pages 这个专门的分支上
+          force_orphan: true           # 保证每次都是干净的发布，不保留历史垃圾
