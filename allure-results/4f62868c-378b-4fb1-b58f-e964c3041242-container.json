@@ -1,1 +1,0 @@
-{"uuid": "1049ea1c-6bf7-46f4-8dd9-b399f3ffe117", "children": ["a01101aa-85cc-475f-ada4-9a30f8fb3b5d"], "befores": [{"name": "register_login_get_token", "status": "passed", "start": 1793792372295, "stop": 1793792372300}], "afters": [{"name": "register_login_get_token::<lambda>", "start": 1793792372310}], "start": 1793792372295, "stop": 1793792372310}
