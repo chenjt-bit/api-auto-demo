@@ -16,7 +16,7 @@
 ![Tests](https://img.shields.io/badge/Cases-24-success)
 
 [在线测试报告](https://chenjt-bit.github.io/api-auto-demo/) ·
-[测试用例设计](<docs/电商业接口测试用例.xlsx>) ·
+[测试用例设计](<docs/电商业务接口测试用例.xlsx>) ·
 [问题反馈](https://github.com/chenjt-bit/api-auto-demo/issues)
 
 </div>
@@ -72,7 +72,7 @@
 | 分类 | 选型 |
 | --- | --- |
 | 语言 | Python 3.12+ |
-| 测试框架 | Pytest 9（Fixture、参数化、Marker） |
+| 测试框架 | Pytest 9（Fixture、参数化、Marker、xfail） |
 | 请求库 | Requests（Session 复用 + 连接/读取超时） |
 | 数据驱动 | PyYAML / JSON |
 | 数据库 | MySQL 8.0 + PyMySQL |
@@ -89,7 +89,7 @@ flowchart LR
         T["tests/ecommerce<br/>登录 · 商品 · 权限 · AI 异常"]
     end
     subgraph 框架层
-        C["config/settings.py<br/>环境配置"]
+        C["config/settings.py<br/>配置唯一入口"]
         A["api/<br/>接口封装"]
         D["data/<br/>YAML / JSON 数据"]
     end
@@ -107,37 +107,37 @@ flowchart LR
 ```
 
 **分层原则**：用例层只写"业务动作 + 断言"，不出现裸 URL 和 SQL 拼接；
-接口路径、请求方式、超时策略全部收敛在 `api/` 层；环境地址与账号收敛在 `config/`。
+接口路径、请求方式、超时策略全部收敛在 `api/` 层；环境地址、数据库连接收敛在 `config/`。
 
 ```text
 api-auto-demo/
 ├── .github/workflows/
-│   └── test.yml                 # CI 流水线：MySQL 容器 + 靶机 + 用例 + Allure 发布
-├── api/                         # 接口封装层（只关心"怎么发请求"）
-│   ├── ecommerce_login_api.py
-│   ├── ecommerce_item_api.py
-│   └── posts_api.py             # 文章模块封装示例（当前未纳入用例集）
+│   └── test.yml                  # CI：MySQL 容器 + 靶机 + 用例 + Allure 发布
+├── api/                          # 接口封装层（只关心"怎么发请求"）
+│   ├── ecommerce_login_api.py    # 登录 / 注册相关请求
+│   └── ecommerce_item_api.py     # 商品发布 / 查询 / 删除请求
 ├── config/
-│   └── settings.py              # 配置唯一入口：环境、地址、超时、数据库
-├── data/                        # 数据驱动层（只关心"用什么数据测"）
-│   ├── ecommerce_items.yaml     # 商品边界值数据
-│   └── ai_generated_items.json  # AI 生成的异常数据
+│   └── settings.py               # 配置唯一入口：环境、地址、超时、数据库
+├── data/                         # 数据驱动层（只关心"用什么数据测"）
+│   ├── ecommerce_items.yaml      # 商品边界值数据（7 组）
+│   └── ai_generated_items.json   # AI 生成的异常数据（5 组）
 ├── docs/
-│   └── 电商业接口测试用例.xlsx   # 测试用例设计文档（ID / 优先级 / 预期 / 实际）
+│   └── 电商业务接口测试用例.xlsx  # 用例设计文档（ID / 优先级 / 预期 / 实际）
 ├── mock_server/
-│   └── real_server.py           # 被测系统：FastAPI + MySQL 电商靶机
+│   └── real_server.py            # 被测系统：FastAPI + MySQL 电商靶机
 ├── tests/
-│   ├── conftest.py              # 全局 Fixture：HTTP Session、DB 连接、run_id、数据回收
+│   ├── conftest.py               # 全局 Fixture：Session、DB 连接、run_id、数据回收
 │   └── ecommerce/
-│       ├── conftest.py          # 业务 Fixture：用户工厂、Token 工厂、商品工厂
-│       ├── test_login.py        # 登录模块
-│       ├── test_items.py        # 商品模块
-│       ├── test_ai_items.py     # AI 数据驱动的异常场景
-│       └── test_permission.py   # 权限模块
-├── ai_client.py                 # AI 用例数据生成脚本（独立工具，不参与用例执行）
-├── locustfile.py                # Locust 性能压测脚本
-├── conftest.py                  # 根 Fixture：--env 环境切换
-├── pytest.ini                   # Pytest 配置：路径、Marker、Allure
+│       ├── conftest.py           # 业务 Fixture：用户 / Token / 商品工厂
+│       ├── test_login.py         # 登录模块（5 条）
+│       ├── test_items.py         # 商品模块（11 条）
+│       ├── test_ai_items.py      # AI 数据驱动异常场景（5 条）
+│       └── test_permission.py    # 权限模块（3 条）
+├── .env.example                  # 环境变量模板
+├── ai_client.py                  # AI 用例数据生成脚本（独立工具，不参与用例执行）
+├── locustfile.py                 # Locust 性能压测脚本
+├── conftest.py                   # 根 Fixture：--env 环境切换
+├── pytest.ini                    # Pytest 配置：路径、Marker、Allure
 ├── requirements.txt
 └── README.md
 ```
@@ -148,7 +148,7 @@ api-auto-demo/
 
 | 模块 | 文件 | 用例数 | 覆盖场景 |
 | --- | --- | ---: | --- |
-| 登录 | `test_login.py` | 5 | 正确账号登录并校验 Token、密码错误 401、用户不存在 401、空参数 422、用户名带空格 |
+| 登录 | `test_login.py` | 5 | 正确账号登录并校验 Token、密码错误 401、用户不存在 401、空参数 422、用户名带前后空格 |
 | 商品 | `test_items.py` | 11 | 发布商品 + 数据库落库断言、删除自己的商品 + 数据库验证、价格边界参数化（7 组）、端到端全链路（发布→查询→落库）、水平越权删除 403 |
 | 权限 | `test_permission.py` | 3 | 管理员登录、普通用户访问 `/admin/users` 返回 403、管理员访问返回 200 |
 | AI 异常 | `test_ai_items.py` | 5 | 大模型生成超长字符、空串、SQL 注入串、emoji、负价格等异常数据的回归验证 |
@@ -265,8 +265,6 @@ pytest
 
 ## 执行测试
 
-> 命令需在**项目根目录**执行（数据文件按工作目录相对路径加载）。
-
 | 场景 | 命令 |
 | --- | --- |
 | 全量执行（默认生成 Allure 原始数据） | `pytest` |
@@ -284,6 +282,8 @@ pytest
 | `ecommerce` | 电商靶机整体业务 |
 | `ecommerce_login` | 登录模块 |
 | `ecommerce_items` | 商品模块 |
+
+> 数据文件路径以项目根目录为锚点，从任意目录启动 `pytest` 结果一致，无需先 `cd` 到根目录。
 
 ## 测试报告
 
