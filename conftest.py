@@ -9,6 +9,7 @@ def pytest_addoption(parser):
         "--env",
         action="store",
         default="dev",
+        choices=["dev", "test", "prod"],  # ← 新增这行
         help="指定测试环境：dev,test,prod"
     )
 

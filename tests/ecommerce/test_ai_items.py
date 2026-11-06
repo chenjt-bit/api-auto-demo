@@ -1,15 +1,20 @@
 import json
-import pytest
-import allure
 import os
+
+import allure
+import pytest
+
+from config.settings import BASE_DIR
+
+# 数据文件路径锚定到项目根目录，不依赖启动 pytest 时的工作目录
+DATA_FILE = os.path.join(BASE_DIR, "data", "ai_generated_items.json")
 
 
 # 1. 读取 AI 生成的 JSON 文件
 def load_ai_data():
-    file_path = "data/ai_generated_items.json"
-    if not os.path.exists(file_path):
-        return []
-    with open(file_path, "r", encoding="utf-8") as f:
+    if not os.path.exists(DATA_FILE):
+        raise FileNotFoundError(f"AI 数据文件缺失: {DATA_FILE}")
+    with open(DATA_FILE, "r", encoding="utf-8") as f:
         return json.load(f)
 
 
@@ -35,8 +40,12 @@ class TestAIItems:
             # 🌟 企业级思维：不盲信 AI 的预测！
             # 这里我们不直接用 assert response.status_code == ai_expected_code
             # 我们把实际结果和 AI 的预测都打印出来，由测试工程师来判断
-            print(f"\n👉 AI 预期状态码: {ai_expected_code} | 实际状态码: {response.status_code}")
-            print(f"👉 后端返回: {response.text}")
+            print(f"\n AI 预期状态码: {ai_expected_code} | 实际状态码: {response.status_code}")
+            print(f" 后端返回: {response.text}")
 
-            # 合法数据返回 200，非法边界返回 422。只要不是这两个，就是后端出了严重故障！
-            assert response.status_code in [200, 422], f"后端发生了未知故障，状态码: {response.status_code}"
+            assert response.status_code == ai_expected_code, (
+                f"预期 {ai_expected_code}，实际 {response.status_code}，body={response.text}"
+            )
+            # 422 时进一步校验契约，而不是只看状态码
+            if ai_expected_code == 422:
+                assert isinstance(response.json().get("detail"), list)

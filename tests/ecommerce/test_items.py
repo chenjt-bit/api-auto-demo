@@ -1,10 +1,17 @@
 # 测试添加商品模块的自动化测试用例
+import os
+import time
+
 import allure
 import pytest
-import time
 import yaml
 
+from config.settings import BASE_DIR
+
 pytestmark = pytest.mark.ecommerce_items
+
+# 数据文件路径锚定到项目根目录，不依赖启动 pytest 时的工作目录
+DATA_FILE = os.path.join(BASE_DIR, "data", "ecommerce_items.yaml")
 
 # 1. 标记它属于哪个大业务模块
 @allure.feature("电商-商品模块")
@@ -17,8 +24,8 @@ pytestmark = pytest.mark.ecommerce_items
 # ecommerce_items_001:正向成功发布商品
 def test_items_check_token(ecommerce_item_api,user_headers_factory,db_message,item_payload_factory):
     # 准备商品数据
-    unique_name = item_payload_factory()["name"]
     payload = item_payload_factory()
+    unique_name = payload["name"]
     headers = user_headers_factory()
     # 5. 给操作步骤加上“剧本台词”
     with allure.step("步骤1：发送 POST 请求发布商品"):
@@ -58,7 +65,7 @@ def test_user_delete_own_item_success(ecommerce_item_api, user_headers_factory, 
 # 测试参数化
 # 读取yaml数据文件
 def item_test_data():
-    with open("data/ecommerce_items.yaml","r",encoding="utf-8") as file:
+    with open(DATA_FILE, "r", encoding="utf-8") as file:
         return yaml.safe_load(file)
 
 @pytest.mark.parametrize(

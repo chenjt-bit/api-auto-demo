@@ -38,8 +38,9 @@ def test_login_with_empty_payloay(ecommerce_login_api):
     assert response.status_code == 422
 
 # 测试账号前后有空格
+@pytest.mark.xfail(reason="BUG-123 后端未对 username 做 strip，修复后移除本标记", strict=True)
 def test_login_empty_ahead_name(user_factory,ecommerce_login_api):
     user = user_factory()
     payload = {"username":" "+user["username"],"password":"123456"}
     response = ecommerce_login_api.get_login(payload)
-    assert response.status_code == 401
+    assert response.status_code == 200
