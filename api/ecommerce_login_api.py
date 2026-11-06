@@ -5,7 +5,7 @@ class eCommerceLoginApi:
         self.client = api_client
         self.endpoint = "/login"
 
-    #封装普通用户登录的请求
+    #封装用户登录的请求
     def get_login(self,login_payload=None,**kwargs):
         url = f"{self.client.base_url}{self.endpoint}"
 

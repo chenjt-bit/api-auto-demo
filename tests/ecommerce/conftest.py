@@ -1,69 +1,57 @@
 import pytest
-# import requests
 import time
-from config.settings import accounts
-
-#将获取token的操作打包成一个函数（通过角色获取）
-def get_token_by_role(api_client,role):
-    #accounts是一个字典数据，里面有俩个字典数据一个是admin，一个是普通用户
-    payload = accounts[role]
-    response = api_client.post(f"{api_client.base_url}/login",json=payload)
-    assert response.status_code == 200
-    body = response.json()
-    return body["access_token"]
-
-@pytest.fixture(scope="module") # 建议用 module 而不是 session，防止过期
-def admin_headers(api_client):
-    token = get_token_by_role(api_client, "admin")
-    return {"Authorization": f"Bearer {token}"}
-
-#1.
-#先写一个专门生成动态账号的夹具
-@pytest.fixture(scope="module")
-def dynamic_user_account(api_client):
-    """动态注册一个全新的普通用户，保证每次测试环境干净"""
-    unique_name = f"user_{int(time.time())}"
-    payload = {"username": unique_name, "password": "123456"}
-
-    # 注册
-    res = api_client.post(f"{api_client.base_url}/register", json=payload)
-    # 允许 200 (成功) 或者 400 (虽然时间戳大概率不重复，但加上更稳健)
-    assert res.status_code in [200, 400]
-
-    return payload  # 返回 {"username": "user_xxx", "password": "123456"}
-
-
-# 2. 改造你的 user_headers 夹具，让它依赖刚才生成的账号
-@pytest.fixture(scope="module")
-def user_headers(api_client, dynamic_user_account):
-    """用刚才动态注册的账号去登录，获取 Token"""
-    res = api_client.post(f"{api_client.base_url}/login", json=dynamic_user_account)
-    assert res.status_code == 200, "前置登录失败，拿不到Token"
-
-    token = res.json()["access_token"]
-    return {"Authorization": f"Bearer {token}"}
-
-
+import uuid  # 确保顶部引入了 uuid
+from api.ecommerce_item_api import eCommerceItemApi
+from api.ecommerce_login_api import eCommerceLoginApi
+#🛠️ 企业级改造：把用户夹具变成“超级兵工厂”
 @pytest.fixture
-def create_user_and_get_headers(api_client):
+def user_factory(api_client):
     """
-    工厂夹具：调用一次，就动态注册一个新用户并返回其 headers
+    🌟 企业级用户数据工厂
+    调用一次，就在数据库里真实注册一个用户，并返回账号信息
     """
-    def _create_user():
-        # 每次调用生成毫秒级时间戳，确保账号永不重复
-        unique_name = f"user_{int(time.time() * 1000)}"
+    def _create_user(role="user"):
+        # 毫秒时间戳 + uuid 前8位，绝对不可能重复
+        unique_name = f"user_{int(time.time() * 1000)}_{str(uuid.uuid4())[:8]}"
         password = "123456"
-        # 1. 注册
-        reg_res = api_client.post(f"{api_client.base_url}/register",
-                                  json={"username": unique_name, "password": password})
-        # 允许 200（注册成功）或 400（可能极小概率重复）
-        assert reg_res.status_code in [200, 400]
-        # 2. 登录获取 Token
-        login_res = api_client.post(f"{api_client.base_url}/login",
-                                   json={"username": unique_name, "password": password})
-        assert login_res.status_code == 200
-        token = login_res.json()["access_token"]
-        # 3. 返回组装好的请求头
-        return {"Authorization": f"Bearer {token}"}
+        reg_payload = {
+            "username":unique_name,
+            "password":password
+        }
+        register_response = api_client.post(f"{api_client.base_url}/register",json=reg_payload)
+        assert register_response.status_code == 200,f"注册失败，原因是：{register_response.text}"
+        # 返回一个包含用户信息
+        return {
+            "username":unique_name,
+            "password":password,
+        }
 
     return _create_user
+
+@pytest.fixture
+def user_headers_factory(api_client,user_factory):
+    def _create_headers():
+        user = user_factory()
+        payload = {"username": user["username"], "password": user["password"]}
+        response = api_client.post(f"{api_client.base_url}/login", json=payload)
+        assert response.status_code == 200
+        token = response.json()["access_token"]
+        return {"Authorization": f"Bearer {token}"}
+    return _create_headers
+
+# 再封装一个动态创造商品数据的夹具
+@pytest.fixture
+def item_payload_factory():
+    """商品数据工厂：既支持自动生成唯一名字，又支持手动传参覆盖"""
+    def _create(name=None, price=18.5):
+        unique_name = name if name is not None else f"toyBear_{int(time.time() * 1000)}"
+        return {"name": unique_name, "price": price}
+    return _create
+
+@pytest.fixture
+def ecommerce_login_api(api_client):
+    return eCommerceLoginApi(api_client)
+
+@pytest.fixture
+def ecommerce_item_api(api_client):
+    return eCommerceItemApi(api_client)
