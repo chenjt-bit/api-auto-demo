@@ -18,4 +18,4 @@ def pytest_configure(config):
     env = config.getoption("--env")
     # 将其写入系统环境变量
     os.environ["ENV"] = env
-    print(f"\n🚀 正在启动测试，当前环境切换为: {env}")
+    print(f"\n 正在启动测试，当前环境切换为: {env}")
