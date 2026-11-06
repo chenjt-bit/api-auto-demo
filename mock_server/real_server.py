@@ -72,8 +72,10 @@ class UserBase(BaseModel):
 
 
 class ItemBase(BaseModel):
-    name: str = Field(..., max_length=50)
-    price: float
+    # 限制名字不能为空，且最长 50
+    name: str = Field(..., min_length=1, max_length=50)
+    # 限制价格必须大于 0
+    price: float = Field(..., gt=0)
 
 
 # ================= 鉴权工具 =================

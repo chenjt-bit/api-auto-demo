@@ -1,0 +1,32 @@
+[
+  {
+    "case_name": "超长字符",
+    "name": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+    "price": 10.0,
+    "expected_code": 422
+  },
+  {
+    "case_name": "空字符串",
+    "name": "",
+    "price": 10.0,
+    "expected_code": 422
+  },
+  {
+    "case_name": "SQL注入语句",
+    "name": "'; DROP TABLE products; --",
+    "price": 10.0,
+    "expected_code": 422
+  },
+  {
+    "case_name": "包含特殊表情符号",
+    "name": "测试商品😀🎉🚀",
+    "price": 10.0,
+    "expected_code": 422
+  },
+  {
+    "case_name": "负数价格",
+    "name": "正常商品",
+    "price": -1.0,
+    "expected_code": 422
+  }
+]
