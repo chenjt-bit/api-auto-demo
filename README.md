@@ -58,7 +58,8 @@
 | --- | --- |
 | **分层架构** | 配置层 / 接口封装层 / 数据层 / 用例层 / 靶机层，职责单一，互不污染 |
 | **业务分域** | 按登录、商品、权限拆分测试模块，用 `pytest.mark` 打标，可按模块精准回归 |
-| **动态数据工厂** | 毫秒时间戳 + UUID 生成唯一账号与商品名，彻底解决"重复执行报错"和测试数据污染 |
+| **动态数据工厂** | 按运行批次（`run_id`）+ UUID 生成唯一账号与商品名，解决"重复执行报错"与命名冲突 |
+| **测试数据自清理** | 造数时登记 `item_id` / `username`，会话结束统一回收，跑 N 次数据量不增长 |
 | **接口 + 数据库双重断言** | 直连 MySQL 校验数据是否真正持久化，拒绝表面断言 |
 | **越权防护测试** | 水平越权（用户 B 删除用户 A 的商品 → 403）+ 垂直越权（普通用户访问管理接口 → 403） |
 | **数据驱动** | YAML 管理边界数据（正常价 / 0 元 / 负价 / 空名 / 超长名 / emoji），一份用例覆盖多组场景 |
@@ -117,17 +118,16 @@ api-auto-demo/
 │   ├── ecommerce_item_api.py
 │   └── posts_api.py             # 文章模块封装示例（当前未纳入用例集）
 ├── config/
-│   └── settings.py              # 环境地址、超时、账号池
+│   └── settings.py              # 配置唯一入口：环境、地址、超时、数据库
 ├── data/                        # 数据驱动层（只关心"用什么数据测"）
 │   ├── ecommerce_items.yaml     # 商品边界值数据
-│   ├── ai_generated_items.json  # AI 生成的异常数据
-│   └── posts_data.yaml
+│   └── ai_generated_items.json  # AI 生成的异常数据
 ├── docs/
 │   └── 电商业接口测试用例.xlsx   # 测试用例设计文档（ID / 优先级 / 预期 / 实际）
 ├── mock_server/
 │   └── real_server.py           # 被测系统：FastAPI + MySQL 电商靶机
 ├── tests/
-│   ├── conftest.py              # 全局 Fixture：HTTP Session、数据库游标
+│   ├── conftest.py              # 全局 Fixture：HTTP Session、DB 连接、run_id、数据回收
 │   └── ecommerce/
 │       ├── conftest.py          # 业务 Fixture：用户工厂、Token 工厂、商品工厂
 │       ├── test_login.py        # 登录模块
@@ -144,7 +144,7 @@ api-auto-demo/
 
 ## 测试覆盖
 
-共 **24 条**自动化用例，全部可重复执行。
+共 **24 条**自动化用例，全部可重复执行（其中 1 条以 `xfail` 标记后端已知缺陷）。
 
 | 模块 | 文件 | 用例数 | 覆盖场景 |
 | --- | --- | ---: | --- |
@@ -157,6 +157,18 @@ api-auto-demo/
 
 ```text
 注册（唯一账号） → 登录（JWT Token） → 发布商品 → 查询商品列表 → 数据库校验 → 越权删除被拒 → 本人删除成功
+```
+
+**测试数据管理**：
+
+- 每次运行创建的账号与商品都带 `run_id` 前缀（如 `run_20261106_2220_ab12`），可追溯到具体批次；
+- 造数时把 `item_id` / `username` 登记到 `created_data`，测试会话结束时**统一回收**；
+- 回收在用例失败时同样执行，因此连续执行 N 次，数据库行数不增长；
+- 若进程被强制终止导致残留，可按批次前缀手工清理：
+
+```sql
+DELETE FROM items WHERE name LIKE 'run_20261106_2220_ab12%';
+DELETE FROM users WHERE username LIKE 'run_20261106_2220_ab12%';
 ```
 
 ## 快速开始
@@ -200,15 +212,33 @@ pip install -r requirements.txt
 
 ### 3. 配置环境变量
 
-在项目根目录创建 `.env.dev`（该文件已被 `.gitignore` 忽略，不会提交）：
+复制模板并修改（`.env.*` 已被 `.gitignore` 忽略，不会提交）：
 
-```ini
-BASE_URL=http://127.0.0.1:8081
-DB_PASSWORD=123456
+```bash
+cp .env.example .env.dev
 ```
 
-- `--env dev`（默认）读取 `.env.dev`；`pytest --env test` 则读取 `.env.test`
-- 云端的 `.env.*` 文件不存在，因此 CI 直接通过环境变量注入，二者互不冲突
+```ini
+ENV=dev
+BASE_URL=http://127.0.0.1:8081
+
+DB_HOST=127.0.0.1
+DB_PORT=3307
+DB_USER=root
+DB_PASSWORD=123456
+DB_NAME=ecommerce
+```
+
+**配置优先级**（从高到低）：
+
+| 顺序 | 来源 | 说明 |
+| ---: | --- | --- |
+| 1 | 环境变量 | CI / 容器 / 命令行显式注入，优先级最高 |
+| 2 | `.env.{env}` 文件 | 本地开发用，按 `ENV` 决定加载哪个文件 |
+| 3 | 代码默认值 | `config/settings.py` 中兜底，保证零配置也能跑 |
+
+- 默认 `--env dev` 读取 `.env.dev`；`pytest --env test` 读取 `.env.test`；环境名写错会直接报错，不会静默回退。
+- 云端没有 `.env.*` 文件，CI 通过环境变量注入，**同一份代码不需要任何改动**。
 
 > 使用 AI 造数脚本时，另需在 `.env` 中配置 `LLM_API_KEY`（仅本机使用，请勿提交）。
 
@@ -361,15 +391,15 @@ netstat -ano | findstr 3307
 </details>
 
 <details>
-<summary><b>3. Windows 终端执行 AI 用例报 UnicodeEncodeError</b></summary>
+<summary><b>3. Windows 终端报 UnicodeEncodeError</b></summary>
 
-`test_ai_items.py` 会打印含 emoji 的对比信息，而 Windows 控制台默认使用 GBK 编码，无法输出 emoji：
+Windows 控制台默认使用 GBK 编码，输出 emoji 等非 GBK 字符会抛异常（项目自身已移除 emoji；若你自行添加带 emoji 的 `print` 仍会复现）：
 
 ```
 UnicodeEncodeError: 'gbk' codec can't encode character '\U0001f449'
 ```
 
-临时规避（不影响用例逻辑，CI 的 Ubuntu 环境为 UTF-8，不存在此问题）：
+规避方式（CI 为 UTF-8 环境，不存在此问题）：
 
 ```powershell
 $env:PYTHONIOENCODING = "utf-8"
@@ -378,11 +408,18 @@ pytest
 </details>
 
 <details>
-<summary><b>4. 报 FileNotFoundError: 'data/ecommerce_items.yaml'</b></summary>
+<summary><b>4. 跑完测试后，数据库里会留下测试数据吗？</b></summary>
 
-当前数据文件按**工作目录**相对定位，请在项目根目录执行 `pytest`。
-若使用 IDE 的"单文件运行"，请把 Working directory 设置为项目根目录
-（该问题已列入规划，后续将改为基于 `__file__` 的绝对路径）。
+不会。用例创建的账号与商品都会登记，测试会话结束时统一删除，重复执行数据量不增长。
+
+若进程被强制终止（如 Ctrl+C 后强杀），清理不会执行，可按批次前缀手工回收：
+
+```sql
+DELETE FROM items  WHERE name     LIKE 'run_20261106_2220_ab12%';
+DELETE FROM users  WHERE username LIKE 'run_20261106_2220_ab12%';
+```
+
+> 来自 YAML / AI 数据集的商品名不带前缀（它们要验证边界值），进程被强杀后无法按名字找回，建议在独占测试库中执行。
 </details>
 
 <details>
@@ -397,18 +434,19 @@ pytest
 
 ## 已知限制与规划
 
-本项目为个人进阶实战项目，仍在持续迭代。以下是当前**明确的不足**，也是下一步的改进方向：
+本项目为个人进阶实战项目，仍在持续迭代。以下是各专项的完成情况与后续计划：
 
-| 类别 | 当前状态 | 规划 |
+| 类别 | 状态 | 说明 |
 | --- | --- | --- |
-| 配置治理 | 数据库连接信息在靶机与测试夹具中各有一份 | 收敛到 `config/settings.py` 单一入口 |
-| 数据清理 | 用例产生的商品数据不自动清理，长期执行会累积 | 增加按 run_id 清理的 Fixture，或每用例事务回滚 |
-| 数据路径 | 依赖工作目录相对路径 | 改为基于 `__file__` 的绝对路径 |
-| 契约校验 | 已安装 `jsonschema`，尚未接入断言 | 为响应体补充 JSON Schema 校验 |
-| 鉴权用例 | 覆盖了 403 越权，缺少 401 无 Token / 过期 Token 场景 | 补充 Token 失效链路 |
-| 代码质量 | 无 lint / 类型检查门禁 | 接入 ruff + mypy + pre-commit |
-| 依赖管理 | `requirements.txt` 为全量冻结清单 | 拆分运行/开发依赖，使用 constraints 锁版本 |
-| 用例追溯 | 用例与 `docs/` 设计文档未建立 ID 关联 | 用 `@allure.id` 打通需求—用例—结果 |
+| 配置治理 | ✅ 已完成 | 收敛到 `config/settings.py`，优先级：环境变量 > `.env` 文件 > 代码默认值 |
+| 数据路径 | ✅ 已完成 | 以 `BASE_DIR` 锚定，任意目录启动结果一致 |
+| 数据清理 | ✅ 已完成 | `run_id` 命名 + `created_data` 登记，会话结束自动回收 |
+| 已知缺陷 | ⚠️ 待修复 | 登录接口未对 `username` 做 `strip`（BUG-123），已用 `xfail(strict=True)` 标记；后端修复后用例会提醒移除标记 |
+| 契约校验 | 🚧 计划中 | 已安装 `jsonschema`，尚未接入响应断言 |
+| 鉴权用例 | 🚧 计划中 | 覆盖了 403 越权，缺少 401 无 Token / 过期 Token 场景 |
+| 代码质量 | 🚧 计划中 | 尚无 lint / 类型检查门禁，计划接入 ruff + mypy + pre-commit |
+| 依赖管理 | 🚧 计划中 | `requirements.txt` 为全量冻结清单，计划拆分运行/开发依赖 |
+| 用例追溯 | 🚧 计划中 | 用例与 `docs/` 设计文档未建立 ID 关联 |
 
 > 欢迎通过 [Issues](https://github.com/chenjt-bit/api-auto-demo/issues) 交流指正。
 
