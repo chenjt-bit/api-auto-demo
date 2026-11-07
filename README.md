@@ -64,6 +64,8 @@
 | **越权防护测试** | 水平越权（用户 B 删除用户 A 的商品 → 403）+ 垂直越权（普通用户访问管理接口 → 403） |
 | **数据驱动** | YAML 管理边界数据（正常价 / 0 元 / 负价 / 空名 / 超长名 / emoji），一份用例覆盖多组场景 |
 | **AI 辅助造数** | `ai_client.py` 调用大模型生成异常用例数据，产出落盘为 JSON 由用例消费 |
+| **接口契约校验** | JSON Schema 校验成功响应与 422 错误结构，契约文件集中在 `tests/schemas/` |
+| **幂等行为断言** | 同名商品重复提交、重复删除的现状断言，防止业务行为悄悄变化 |
 | **可视化报告** | Allure 中文标题 + 业务步骤 + 严重级别，失败可直接定位到具体步骤 |
 | **用例可追溯** | `@allure.id` 绑定设计文档用例编号，报告可反查；CI 校验编号缺失、重复与文档不一致 |
 | **失败现场自解释** | 统一断言封装：失败时自动附带请求方法/URL、请求体、响应码与响应体，并写入 Allure 报告 |
@@ -74,7 +76,7 @@
 | 分类 | 选型 |
 | --- | --- |
 | 语言 | Python 3.12+ |
-| 测试框架 | Pytest 9（Fixture、参数化、Marker、xfail） |
+| 测试框架 | Pytest 9（Fixture、参数化、Marker、钩子） |
 | 请求库 | Requests（Session 复用 + 连接/读取超时） |
 | 数据驱动 | PyYAML / JSON |
 | 数据校验 | jsonschema（响应契约校验） |
@@ -120,11 +122,12 @@ api-auto-demo/
 │   ├── ecommerce_login_api.py    # 登录 / 注册相关请求
 │   └── ecommerce_item_api.py     # 商品发布 / 查询 / 删除请求
 ├── common/
-│   └── assertions.py             # 统一断言：失败自动附带请求/响应现场
+│   ├── assertions.py             # 统一断言：失败自动附带请求/响应现场
+│   └── contracts.py              # JSON Schema 契约校验
 ├── config/
 │   └── settings.py               # 配置唯一入口：环境、地址、超时、数据库
 ├── data/                         # 数据驱动层（只关心"用什么数据测"）
-│   ├── ecommerce_items.yaml      # 商品边界值数据（7 组）
+│   ├── ecommerce_items.yaml      # 商品边界值数据（6 组）
 │   └── ai_generated_items.json   # AI 生成的异常数据（5 组）
 ├── docs/
 │   ├── 电商业务接口测试用例.xlsx  # 用例设计文档（ID / 优先级 / 预期 / 实际）
@@ -134,13 +137,14 @@ api-auto-demo/
 ├── tests/
 │   ├── conftest.py               # 全局 Fixture：Session、DB 连接、run_id、数据回收
 │   ├── schemas/
-│   │   └── item_created.schema.json  # 发布商品的响应契约
+│   │   ├── item_created.schema.json      # 发布商品成功响应契约
+│   │   └── validation_error.schema.json  # 422 参数错误契约
 │   └── ecommerce/
 │       ├── conftest.py           # 业务 Fixture：用户 / Token / 商品工厂
 │       ├── test_login.py         # 登录模块（5 条）
-│       ├── test_items.py         # 商品模块（11 条）
+│       ├── test_items.py         # 商品模块（15 条）
 │       ├── test_ai_items.py      # AI 数据驱动异常场景（5 条）
-│       └── test_permission.py    # 权限模块（3 条）
+│       └── test_permission.py    # 权限模块（4 条）
 ├── .env.example                  # 环境变量模板
 ├── ai_client.py                  # AI 用例数据生成脚本（独立工具，不参与用例执行）
 ├── locustfile.py                 # Locust 性能压测脚本
@@ -336,7 +340,8 @@ flowchart LR
     A[Push / PR to main] --> B[启动 MySQL 8.0 容器<br/>3307:3306 + 健康检查]
     B --> C[Setup Python 3.12]
     C --> D[pip install -r requirements.txt]
-    D --> E[启动 FastAPI 靶机 :8081]
+    D --> D2[用例编号追溯检查]
+    D2 --> E[启动 FastAPI 靶机 :8081]
     E --> F[健康检查 /docs 探活]
     F --> G[执行 Pytest 全量用例]
     G --> H[生成 Allure 报告]
@@ -350,6 +355,7 @@ flowchart LR
 - **服务探活**：靶机启动后循环探测 `/docs`，确保服务真正就绪再跑用例，避免"连接拒绝"的假失败
 - **失败可追溯**：用例失败时强制打印后端 `uvicorn.log`，并生成报告（`if: always()`），红叉不会丢失现场
 - **环境隔离**：CI 通过 `env` 注入配置，不依赖仓库中的 `.env` 文件，密码类信息不落库
+- **追溯门禁**：执行用例前先跑 `tools/check_case_ids.py`，编号缺失、重复或与文档不一致都会让流水线失败
 
 查看入口：
 
@@ -453,12 +459,15 @@ DELETE FROM users  WHERE username LIKE 'run_20261106_2220_ab12%';
 | 配置治理 | ✅ 已完成 | 收敛到 `config/settings.py`，优先级：环境变量 > `.env` 文件 > 代码默认值 |
 | 数据路径 | ✅ 已完成 | 以 `BASE_DIR` 锚定，任意目录启动结果一致 |
 | 数据清理 | ✅ 已完成 | `run_id` 命名 + `created_data` 登记，会话结束自动回收 |
-| 已知缺陷 | ⚠️ 待修复 | 登录接口未对 `username` 做 `strip`（BUG-123），已用 `xfail(strict=True)` 标记；后端修复后用例会提醒移除标记 |
-| 契约校验 | ✅ 已完成 | 发布商品响应已接入 JSON Schema 校验（`tests/schemas/`） |
-| 鉴权用例 | ✅ 已完成 | 已覆盖 403 越权与 401 无 Token / 伪造 Token；Token 过期未覆盖（靶机 JWT 未设置 exp） |
+| 用例追溯 | ✅ 已完成 | 每条用例用 `@allure.id` 绑定文档编号，`tools/check_case_ids.py` 校验缺失、重复与文档不一致 |
+| 契约校验 | ✅ 已完成 | 成功响应与 422 错误结构均接入 JSON Schema（`tests/schemas/`） |
+| 鉴权用例 | ✅ 已完成 | 覆盖 403 越权、401 无 Token / 伪造 Token；Token 过期未覆盖（靶机 JWT 未设置 exp） |
+| 重复提交 | ✅ 已完成 | 同名重复提交、重复删除的现状断言，防止业务行为悄悄变化 |
+| 缺陷修复 | ✅ 已完成 | 登录接口已对 `username` 做 strip，用例断言 200，原 `xfail` 标记已移除 |
 | 代码质量 | 🚧 计划中 | 尚无 lint / 类型检查门禁，计划接入 ruff + mypy + pre-commit |
 | 依赖管理 | 🚧 计划中 | `requirements.txt` 为全量冻结清单，计划拆分运行/开发依赖 |
-| 用例追溯 | ✅ 已完成 | 每条用例用 `@allure.id` 绑定文档编号，`tools/check_case_ids.py` 校验缺失、重复与文档不一致 |
+| 性能门禁 | 🚧 计划中 | 有 Locust 脚本，但未纳入 CI，也没有性能基线 |
+| 分页 / 排序 | 🚧 计划中 | `GET /items` 返回全表，后端未实现分页，暂无法覆盖 |
 
 > 欢迎通过 [Issues](https://github.com/chenjt-bit/api-auto-demo/issues) 交流指正。
 

@@ -58,6 +58,10 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
+      # 步骤 3.5：用例编号追溯检查（编号缺失、重复或与文档不一致时直接失败）
+      - name: Check case ids
+        run: python tools/check_case_ids.py
+
       # 步骤 4：启动靶机后端服务
       - name: Start Server
         run: |

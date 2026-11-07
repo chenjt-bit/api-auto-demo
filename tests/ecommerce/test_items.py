@@ -1,32 +1,14 @@
 # 测试添加商品模块的自动化测试用例
-import json
 import os
 import time
 
 import allure
-import jsonschema
 import pytest
 import yaml
 
 from common.assertions import assert_json, assert_status
+from common.contracts import assert_schema
 from config.settings import BASE_DIR
-
-# 响应契约文件目录，同样锚定到项目根，不依赖启动目录
-SCHEMA_DIR = os.path.join(BASE_DIR, "tests", "schemas")
-
-
-def load_schema(filename):
-    with open(os.path.join(SCHEMA_DIR, filename), "r", encoding="utf-8") as f:
-        return json.load(f)
-
-
-def assert_schema(response, filename):
-    """用 JSON Schema 校验响应体；不通过时给出具体字段路径。"""
-    try:
-        jsonschema.validate(instance=response.json(), schema=load_schema(filename))
-    except jsonschema.ValidationError as exc:
-        raise AssertionError(f"响应契约不符（{filename}）：{exc.message}\n响应体：{response.text}")
-
 
 pytestmark = pytest.mark.ecommerce_items
 
