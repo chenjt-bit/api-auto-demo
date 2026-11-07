@@ -112,7 +112,7 @@ def register(user: UserBase):
 # 2. 登录（生成 Token）
 @app.post("/login")
 def login(user: UserBase):
-    user.username = user.username.strip()
+    user.username = user.username.strip()#做空格校验
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute("SELECT id, role FROM users WHERE username = %s AND password = %s", (user.username, user.password))

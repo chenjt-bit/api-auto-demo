@@ -13,7 +13,7 @@
 ![Pytest](https://img.shields.io/badge/Pytest-9.x-0A9EDC?logo=pytest&logoColor=white)
 ![MySQL](https://img.shields.io/badge/MySQL-8.0-4479A1?logo=mysql&logoColor=white)
 ![Allure](https://img.shields.io/badge/Report-Allure-FF6B6B)
-![Tests](https://img.shields.io/badge/Cases-28-success)
+![Tests](https://img.shields.io/badge/Cases-29-success)
 
 [在线测试报告](https://chenjt-bit.github.io/api-auto-demo/) ·
 [测试用例设计](<docs/电商业务接口测试用例.xlsx>) ·
@@ -154,12 +154,12 @@ api-auto-demo/
 
 ## 测试覆盖
 
-共 **28 条**自动化用例，全部可重复执行。
+共 **29 条**自动化用例，全部可重复执行。
 
 | 模块 | 文件 | 用例数 | 覆盖场景 |
 | --- | --- | ---: | --- |
 | 登录 | `test_login.py` | 5 | 正确账号登录并校验 Token、密码错误 401、用户不存在 401、空参数 422、用户名带前后空格 |
-| 商品 | `test_items.py` | 14 | 发布商品 + 数据库落库断言、删除自己的商品 + 数据库验证、价格边界参数化（7 组）、端到端全链路（发布→查询→落库）、水平越权删除 403、无 Token / 伪造 Token 401、响应体 JSON Schema 契约校验 |
+| 商品 | `test_items.py` | 15 | 发布商品 + 数据库落库断言、删除自己的商品 + 数据库验证、参数边界（6 组，含空名/超长名/emoji）、端到端全链路、水平越权删除 403、无/伪造 Token 401、响应与错误 JSON Schema 契约、重复提交与重复删除 |
 | 权限 | `test_permission.py` | 4 | 管理员登录、普通用户访问 `/admin/users` 返回 403、管理员访问返回 200、无 Token 访问返回 401 |
 | AI 异常 | `test_ai_items.py` | 5 | 大模型生成超长字符、空串、SQL 注入串、emoji、负价格等异常数据的回归验证 |
 

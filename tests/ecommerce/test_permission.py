@@ -15,7 +15,7 @@ pytestmark = pytest.mark.ecommerce
 
 #1、测试登录admin管理员
 @allure.id("ecommerce_permission_001")
-def test_login_admin(user_factory,ecommerce_login_api):
+def test_login_admin(ecommerce_login_api):
     payload = {
         "username":"admin",
         "password":"admin123"

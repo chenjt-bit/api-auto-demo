@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "参数校验失败响应契约（FastAPI 422）",
+  "type": "object",
+  "required": ["detail"],
+  "additionalProperties": false,
+  "properties": {
+    "detail": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["type", "loc", "msg"],
+        "properties": {
+          "type": { "type": "string" },
+          "loc": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "type": ["string", "integer"] }
+          },
+          "msg": { "type": "string" },
+          "input": {},
+          "ctx": { "type": "object" }
+        }
+      }
+    }
+  }
+}

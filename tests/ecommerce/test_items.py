@@ -19,6 +19,15 @@ def load_schema(filename):
     with open(os.path.join(SCHEMA_DIR, filename), "r", encoding="utf-8") as f:
         return json.load(f)
 
+
+def assert_schema(response, filename):
+    """用 JSON Schema 校验响应体；不通过时给出具体字段路径。"""
+    try:
+        jsonschema.validate(instance=response.json(), schema=load_schema(filename))
+    except jsonschema.ValidationError as exc:
+        raise AssertionError(f"响应契约不符（{filename}）：{exc.message}\n响应体：{response.text}")
+
+
 pytestmark = pytest.mark.ecommerce_items
 
 # 数据文件路径锚定到项目根目录，不依赖启动 pytest 时的工作目录
@@ -84,19 +93,27 @@ def item_test_data():
 @allure.id("ecommerce_items_004")
 @pytest.mark.parametrize(
     "data",
-    item_test_data()
+    item_test_data(),
+    ids=[row.get("case_name", f"case{i}") for i, row in enumerate(item_test_data())],
 )
 @allure.feature("电商-商品模块")
 @allure.story("发布商品参数校验")
 def test_create_item_with_different_price(ecommerce_item_api,user_headers_factory,data):
     headers = user_headers_factory()
-    payload = {
-        "name":f"{data["name"]}_{int(time.time())}",
-        "price":data["price"]
-    }
-    with allure.step(f"发送发布商品请求，价格：{data["price"]}"):
+
+    # 只有正向用例才追加时间戳保证唯一；边界用例必须原样提交，否则测的就不是边界了
+    name = data["name"]
+    if data.get("unique", True):
+        name = f"{name}_{int(time.time())}"
+
+    payload = {"name": name, "price": data["price"]}
+
+    with allure.step(f"发送发布商品请求，名称：{name!r}，价格：{data['price']}"):
         response = ecommerce_item_api.post_items(payload, headers=headers)
-        assert_status(response, data["expected_code"], f"价格={data['price']}")
+        assert_status(response, data["expected_code"], f"名称={name!r} 价格={data['price']}")
+        # 参数校验失败时，响应体也必须符合 FastAPI 的错误契约
+        if data["expected_code"] == 422:
+            assert_schema(response, "validation_error.schema.json")
 #-----------------------------------------------------------------------------------------------------------------------
 
 # 测试“端到端”全链路的验证：注册登录->发布商品->查询商品->校验数据库是否落库
@@ -192,8 +209,47 @@ def test_create_item_response_schema(ecommerce_item_api, user_headers_factory, i
     payload = item_payload_factory()
     response = ecommerce_item_api.post_items(payload, headers=headers)
     assert_status(response, 200, "发布商品")
+    assert_schema(response, "item_created.schema.json")
 
-    try:
-        jsonschema.validate(instance=response.json(), schema=load_schema("item_created.schema.json"))
-    except jsonschema.ValidationError as exc:
-        raise AssertionError(f"响应契约不符：{exc.message}\n响应体：{response.text}")
+
+@allure.id("ecommerce_items_010")
+@allure.feature("电商-商品模块")
+@allure.story("重复提交")
+@allure.title("同名商品重复提交，生成两条独立记录")
+def test_create_item_twice_with_same_payload(ecommerce_item_api, user_headers_factory, db_message, item_payload_factory):
+    headers = user_headers_factory()
+    payload = item_payload_factory()
+
+    first = ecommerce_item_api.post_items(payload, headers=headers)
+    assert_status(first, 200, "第一次提交")
+
+    second = ecommerce_item_api.post_items(payload, headers=headers)
+    assert_status(second, 200, "第二次提交")
+
+    first_id = first.json()["item_id"]
+    second_id = second.json()["item_id"]
+    assert first_id != second_id, f"两次提交应生成不同商品 ID，实际都是 {first_id}"
+
+    # 当前业务允许同名商品，这里断言的是"现状"：同名会落库两条，用于防回归
+    db_message.execute("SELECT COUNT(1) AS c FROM items WHERE name = %s", (payload["name"],))
+    assert db_message.fetchone()["c"] == 2, "同名商品应落库两条记录"
+
+
+@allure.id("ecommerce_items_011")
+@allure.feature("电商-商品模块")
+@allure.story("重复提交")
+@allure.title("重复删除同一商品，第二次返回 404")
+def test_delete_item_twice(ecommerce_item_api, user_headers_factory, item_payload_factory):
+    headers = user_headers_factory()
+    payload = item_payload_factory()
+
+    created = ecommerce_item_api.post_items(payload, headers=headers)
+    assert_status(created, 200, "发布商品")
+    item_id = created.json()["item_id"]
+
+    first = ecommerce_item_api.delete_item(item_id=item_id, headers=headers)
+    assert_status(first, 200, "第一次删除")
+
+    second = ecommerce_item_api.delete_item(item_id=item_id, headers=headers)
+    assert_status(second, 404, "第二次删除")
+    assert_json(second, detail="商品不存在")

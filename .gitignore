@@ -35,3 +35,6 @@ mock_server/test.db
 allure-results/
 allure-report/
 reports/
+
+# Office 临时锁文件（打开 Excel/Word 时自动生成）
+~$*

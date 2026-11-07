@@ -1,32 +1,39 @@
 # data/ecommerce_items.yaml
-- name: "正常商品"
-  price: 18.5
-  expected_code: 200
-
-- name: "免费商品"
-  price: 0
-  expected_code: 422
-
-- name: "负数商品"
-  price: -10.5
-  expected_code: 422 # 目前后端没拦截，暂定200，以后修复了改400
-
+# 商品发布参数边界数据
+# unique: true  → 用例会自动追加时间戳，保证名字唯一（用于正向流）
+# unique: false → 原样提交，专测边界（空名、超长名等不能被加工）
 - case_name: "正常价格商品"
   name: "正常商品"
   price: 18.5
   expected_code: 200
+  unique: true
+
+- case_name: "免费商品"
+  name: "免费商品"
+  price: 0
+  expected_code: 422
+  unique: false
+
+- case_name: "负数商品"
+  name: "负数商品"
+  price: -10.5
+  expected_code: 422
+  unique: false
 
 - case_name: "超长商品名称"
-  name: "这是超长名字这是超长名字这是超长名字这是超长名字这是超长名字这是超长名字这是超长名字这是超长名字这是超长名字这是超长名字这是超长名字这是超长名字" # 如果数据库是 VARCHAR(50)，这里应该会报错（500）
+  name: "这是超长名字这是超长名字这是超长名字这是超长名字这是超长名字这是超长名字这是超长名字这是超长名字这是超长名字这是超长名字这是超长名字这是超长名字"
   price: 10.0
-  expected_code: 422 # 如果字段够长就是200，超过限制数返回422
+  expected_code: 422
+  unique: false
 
 - case_name: "空商品名称"
   name: ""
   price: 10.0
-  expected_code: 200 # 看你后端要不要拦截
+  expected_code: 422
+  unique: false
 
 - case_name: "表情符号商品"
   name: "🔥爆款🔥"
   price: 10.0
-  expected_code: 200 # 看看你的 MySQL 字符集 (utf8mb4) 能不能存下 emoji
+  expected_code: 200
+  unique: true
