@@ -4,6 +4,7 @@ import os
 import allure
 import pytest
 
+from common.assertions import assert_status
 from config.settings import BASE_DIR
 
 # 数据文件路径锚定到项目根目录，不依赖启动 pytest 时的工作目录
@@ -29,7 +30,6 @@ class TestAIItems:
         # 3. 提取 AI 生成的数据
         name = ai_data["name"]
         price = ai_data["price"]
-        # 注意：AI 预估的状态码可能不准确，我们先记录下来
         ai_expected_code = ai_data["expected_code"]
 
         payload = {"name": name, "price": price}
@@ -37,15 +37,9 @@ class TestAIItems:
         with allure.step(f"发送商品数据，名称长度: {len(name)}，价格: {price}"):
             response = ecommerce_item_api.post_items(payload, headers=user_headers_factory())
 
-            # 🌟 企业级思维：不盲信 AI 的预测！
-            # 这里我们不直接用 assert response.status_code == ai_expected_code
-            # 我们把实际结果和 AI 的预测都打印出来，由测试工程师来判断
-            print(f"\n AI 预期状态码: {ai_expected_code} | 实际状态码: {response.status_code}")
-            print(f" 后端返回: {response.text}")
+            # 失败时 assert_status 会自动带上请求体、响应码与响应体，无需再 print
+            assert_status(response, ai_expected_code, f"AI 数据：{name}")
 
-            assert response.status_code == ai_expected_code, (
-                f"预期 {ai_expected_code}，实际 {response.status_code}，body={response.text}"
-            )
             # 422 时进一步校验契约，而不是只看状态码
             if ai_expected_code == 422:
                 assert isinstance(response.json().get("detail"), list)

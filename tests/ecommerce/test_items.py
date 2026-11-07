@@ -6,6 +6,7 @@ import allure
 import pytest
 import yaml
 
+from common.assertions import assert_json, assert_status
 from config.settings import BASE_DIR
 
 pytestmark = pytest.mark.ecommerce_items
@@ -30,8 +31,8 @@ def test_items_check_token(ecommerce_item_api,user_headers_factory,db_message,it
     # 5. 给操作步骤加上“剧本台词”
     with allure.step("步骤1：发送 POST 请求发布商品"):
         response = ecommerce_item_api.post_items(payload, headers=headers)
-        assert response.status_code == 200
-        assert response.json()["msg"] == "发布成功"
+        assert_status(response, 200, "发布商品")
+        assert_json(response, msg="发布成功")
 
     #检查数据库
     with allure.step("步骤2：连接数据库，断言商品是否真实落库"):
@@ -55,7 +56,7 @@ def test_user_delete_own_item_success(ecommerce_item_api, user_headers_factory, 
 
     # 2. 用户A 删自己的商品
     delete_res = ecommerce_item_api.delete_item(item_id=item_id, headers=headers)
-    assert delete_res.status_code == 200
+    assert_status(delete_res, 200, "删除自己的商品")
 
     # 3. 查库验证：商品真的被删除了（查不到）
     db_message.execute("SELECT id FROM items WHERE id = %s", (item_id,))
@@ -82,7 +83,7 @@ def test_create_item_with_different_price(ecommerce_item_api,user_headers_factor
     }
     with allure.step(f"发送发布商品请求，价格：{data["price"]}"):
         response = ecommerce_item_api.post_items(payload, headers=headers)
-        assert response.status_code == data["expected_code"]
+        assert_status(response, data["expected_code"], f"价格={data['price']}")
 #-----------------------------------------------------------------------------------------------------------------------
 
 # 测试“端到端”全链路的验证：注册登录->发布商品->查询商品->校验数据库是否落库
@@ -94,14 +95,14 @@ def test_full_e2e_create_and_quary_item(ecommerce_item_api,user_headers_factory,
         headers = user_headers_factory()
         item_payload = item_payload_factory()
         post_response = ecommerce_item_api.post_items(item_payload,headers=headers)
-        assert post_response.status_code == 200
-        assert post_response.json()["msg"] == "发布成功"
+        assert_status(post_response, 200, "发布商品")
+        assert_json(post_response, msg="发布成功")
     #获取商品id
     item_id = post_response.json()["item_id"]
     
     with allure.step("2、发送查询商品请求并断言商品数据"):
         get_response = ecommerce_item_api.get_items(headers=headers)
-        assert get_response.status_code == 200
+        assert_status(get_response, 200, "查询商品列表")
         items_data = get_response.json()["data"]
         # 把列表里的所有商品名提取出来，变成一个新的列表
         item_names = [item["name"] for item in items_data]
@@ -128,7 +129,7 @@ def test_horizontal_privilege_escalation(ecommerce_item_api, user_headers_factor
     # 1. 用户A发布一个商品
     payload = {"name": f"A的宝贝_{int(time.time())}", "price": 99.9}
     post_res = ecommerce_item_api.post_items(payload, headers=headers_a)
-    assert post_res.status_code == 200
+    assert_status(post_res, 200, "用户A发布商品")
     item_id = post_res.json()["item_id"]
 
     # 2. 用户B试图越权删除用户A的商品！
@@ -136,7 +137,7 @@ def test_horizontal_privilege_escalation(ecommerce_item_api, user_headers_factor
         delete_res = ecommerce_item_api.delete_item(item_id=item_id, headers=headers_b)
 
         # 断言：必须返回 403 拒绝
-        assert delete_res.status_code == 403
+        assert_status(delete_res, 403, "用户B越权删除")
         assert "越权警告" in delete_res.json()["detail"]
 
     # 3. 查库验证：A的商品安然无恙，没有被 B 删掉

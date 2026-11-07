@@ -5,6 +5,7 @@ import pytest
 
 from api.ecommerce_item_api import eCommerceItemApi
 from api.ecommerce_login_api import eCommerceLoginApi
+from common.assertions import assert_status
 
 
 # 🛠️ 用户数据工厂：造一个真实用户，并登记起来，跑完统一回收
@@ -27,7 +28,7 @@ def user_factory(api_client, run_id, created_data):
             "password": password,
         }
         register_response = api_client.post(f"{api_client.base_url}/register", json=reg_payload)
-        assert register_response.status_code == 200, f"注册失败，原因是：{register_response.text}"
+        assert_status(register_response, 200, f"注册用户 {unique_name}")
 
         created_data["usernames"].append(unique_name)   # ← 登记，等待回收
 
@@ -45,7 +46,7 @@ def user_headers_factory(api_client, user_factory):
         user = user_factory()
         payload = {"username": user["username"], "password": user["password"]}
         response = api_client.post(f"{api_client.base_url}/login", json=payload)
-        assert response.status_code == 200
+        assert_status(response, 200, f"登录用户 {user['username']}")
         token = response.json()["access_token"]
         return {"Authorization": f"Bearer {token}"}
 
