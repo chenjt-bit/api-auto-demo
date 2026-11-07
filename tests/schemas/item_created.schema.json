@@ -1,0 +1,11 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "发布商品响应契约",
+  "type": "object",
+  "required": ["msg", "item_id"],
+  "additionalProperties": false,
+  "properties": {
+    "msg": { "const": "发布成功" },
+    "item_id": { "type": "integer", "minimum": 1 }
+  }
+}

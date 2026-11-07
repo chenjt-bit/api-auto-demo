@@ -13,7 +13,7 @@
 ![Pytest](https://img.shields.io/badge/Pytest-9.x-0A9EDC?logo=pytest&logoColor=white)
 ![MySQL](https://img.shields.io/badge/MySQL-8.0-4479A1?logo=mysql&logoColor=white)
 ![Allure](https://img.shields.io/badge/Report-Allure-FF6B6B)
-![Tests](https://img.shields.io/badge/Cases-24-success)
+![Tests](https://img.shields.io/badge/Cases-28-success)
 
 [在线测试报告](https://chenjt-bit.github.io/api-auto-demo/) ·
 [测试用例设计](<docs/电商业务接口测试用例.xlsx>) ·
@@ -65,6 +65,7 @@
 | **数据驱动** | YAML 管理边界数据（正常价 / 0 元 / 负价 / 空名 / 超长名 / emoji），一份用例覆盖多组场景 |
 | **AI 辅助造数** | `ai_client.py` 调用大模型生成异常用例数据，产出落盘为 JSON 由用例消费 |
 | **可视化报告** | Allure 中文标题 + 业务步骤 + 严重级别，失败可直接定位到具体步骤 |
+| **用例可追溯** | `@allure.id` 绑定设计文档用例编号，报告可反查；CI 校验编号缺失、重复与文档不一致 |
 | **失败现场自解释** | 统一断言封装：失败时自动附带请求方法/URL、请求体、响应码与响应体，并写入 Allure 报告 |
 | **云端 CI/CD** | GitHub Actions 自动拉起 MySQL 容器、启动靶机、执行全量用例、发布在线报告 |
 
@@ -76,6 +77,7 @@
 | 测试框架 | Pytest 9（Fixture、参数化、Marker、xfail） |
 | 请求库 | Requests（Session 复用 + 连接/读取超时） |
 | 数据驱动 | PyYAML / JSON |
+| 数据校验 | jsonschema（响应契约校验） |
 | 数据库 | MySQL 8.0 + PyMySQL |
 | 靶机服务 | FastAPI + Uvicorn + Pydantic + python-jose(JWT) + DBUtils(连接池) |
 | 测试报告 | Allure 2.x |
@@ -125,11 +127,14 @@ api-auto-demo/
 │   ├── ecommerce_items.yaml      # 商品边界值数据（7 组）
 │   └── ai_generated_items.json   # AI 生成的异常数据（5 组）
 ├── docs/
-│   └── 电商业务接口测试用例.xlsx  # 用例设计文档（ID / 优先级 / 预期 / 实际）
+│   ├── 电商业务接口测试用例.xlsx  # 用例设计文档（ID / 优先级 / 预期 / 实际）
+│   └── 用例追溯表.md              # 用例 ID ↔ 代码映射，CI 自动校验
 ├── mock_server/
 │   └── real_server.py            # 被测系统：FastAPI + MySQL 电商靶机
 ├── tests/
 │   ├── conftest.py               # 全局 Fixture：Session、DB 连接、run_id、数据回收
+│   ├── schemas/
+│   │   └── item_created.schema.json  # 发布商品的响应契约
 │   └── ecommerce/
 │       ├── conftest.py           # 业务 Fixture：用户 / Token / 商品工厂
 │       ├── test_login.py         # 登录模块（5 条）
@@ -139,6 +144,8 @@ api-auto-demo/
 ├── .env.example                  # 环境变量模板
 ├── ai_client.py                  # AI 用例数据生成脚本（独立工具，不参与用例执行）
 ├── locustfile.py                 # Locust 性能压测脚本
+├── tools/
+│   └── check_case_ids.py         # 用例 ID 追溯检查（可直接作为 CI 门禁）
 ├── conftest.py                   # 根 Fixture：--env 环境切换
 ├── pytest.ini                    # Pytest 配置：路径、Marker、Allure
 ├── requirements.txt
@@ -147,14 +154,16 @@ api-auto-demo/
 
 ## 测试覆盖
 
-共 **24 条**自动化用例，全部可重复执行（其中 1 条以 `xfail` 标记后端已知缺陷）。
+共 **28 条**自动化用例，全部可重复执行。
 
 | 模块 | 文件 | 用例数 | 覆盖场景 |
 | --- | --- | ---: | --- |
 | 登录 | `test_login.py` | 5 | 正确账号登录并校验 Token、密码错误 401、用户不存在 401、空参数 422、用户名带前后空格 |
-| 商品 | `test_items.py` | 11 | 发布商品 + 数据库落库断言、删除自己的商品 + 数据库验证、价格边界参数化（7 组）、端到端全链路（发布→查询→落库）、水平越权删除 403 |
-| 权限 | `test_permission.py` | 3 | 管理员登录、普通用户访问 `/admin/users` 返回 403、管理员访问返回 200 |
+| 商品 | `test_items.py` | 14 | 发布商品 + 数据库落库断言、删除自己的商品 + 数据库验证、价格边界参数化（7 组）、端到端全链路（发布→查询→落库）、水平越权删除 403、无 Token / 伪造 Token 401、响应体 JSON Schema 契约校验 |
+| 权限 | `test_permission.py` | 4 | 管理员登录、普通用户访问 `/admin/users` 返回 403、管理员访问返回 200、无 Token 访问返回 401 |
 | AI 异常 | `test_ai_items.py` | 5 | 大模型生成超长字符、空串、SQL 注入串、emoji、负价格等异常数据的回归验证 |
+
+每条用例通过 `@allure.id("ecommerce_xxx_nnn")` 绑定 `docs/用例追溯表.md` 中的编号，缺编号的用例会在收集阶段直接失败。
 
 **关键业务链路**：
 
@@ -445,11 +454,11 @@ DELETE FROM users  WHERE username LIKE 'run_20261106_2220_ab12%';
 | 数据路径 | ✅ 已完成 | 以 `BASE_DIR` 锚定，任意目录启动结果一致 |
 | 数据清理 | ✅ 已完成 | `run_id` 命名 + `created_data` 登记，会话结束自动回收 |
 | 已知缺陷 | ⚠️ 待修复 | 登录接口未对 `username` 做 `strip`（BUG-123），已用 `xfail(strict=True)` 标记；后端修复后用例会提醒移除标记 |
-| 契约校验 | 🚧 计划中 | 已安装 `jsonschema`，尚未接入响应断言 |
-| 鉴权用例 | 🚧 计划中 | 覆盖了 403 越权，缺少 401 无 Token / 过期 Token 场景 |
+| 契约校验 | ✅ 已完成 | 发布商品响应已接入 JSON Schema 校验（`tests/schemas/`） |
+| 鉴权用例 | ✅ 已完成 | 已覆盖 403 越权与 401 无 Token / 伪造 Token；Token 过期未覆盖（靶机 JWT 未设置 exp） |
 | 代码质量 | 🚧 计划中 | 尚无 lint / 类型检查门禁，计划接入 ruff + mypy + pre-commit |
 | 依赖管理 | 🚧 计划中 | `requirements.txt` 为全量冻结清单，计划拆分运行/开发依赖 |
-| 用例追溯 | 🚧 计划中 | 用例与 `docs/` 设计文档未建立 ID 关联 |
+| 用例追溯 | ✅ 已完成 | 每条用例用 `@allure.id` 绑定文档编号，`tools/check_case_ids.py` 校验缺失、重复与文档不一致 |
 
 > 欢迎通过 [Issues](https://github.com/chenjt-bit/api-auto-demo/issues) 交流指正。
 
