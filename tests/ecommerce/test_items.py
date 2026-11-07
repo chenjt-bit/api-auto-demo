@@ -1,13 +1,23 @@
 # 测试添加商品模块的自动化测试用例
+import json
 import os
 import time
 
 import allure
+import jsonschema
 import pytest
 import yaml
 
 from common.assertions import assert_json, assert_status
 from config.settings import BASE_DIR
+
+# 响应契约文件目录，同样锚定到项目根，不依赖启动目录
+SCHEMA_DIR = os.path.join(BASE_DIR, "tests", "schemas")
+
+
+def load_schema(filename):
+    with open(os.path.join(SCHEMA_DIR, filename), "r", encoding="utf-8") as f:
+        return json.load(f)
 
 pytestmark = pytest.mark.ecommerce_items
 
@@ -21,6 +31,7 @@ DATA_FILE = os.path.join(BASE_DIR, "data", "ecommerce_items.yaml")
 # 3. 标记它的严重级别（Blocker最严重，Minor最轻微）
 @allure.severity(allure.severity_level.CRITICAL)
 # 4. 覆盖原生的英文函数名，改成极其专业的中文标题
+@allure.id("ecommerce_items_001")
 @allure.title("验证有效 Token 能成功发布商品，并校验数据库落库")
 # ecommerce_items_001:正向成功发布商品
 def test_items_check_token(ecommerce_item_api,user_headers_factory,db_message,item_payload_factory):
@@ -46,6 +57,7 @@ def test_items_check_token(ecommerce_item_api,user_headers_factory,db_message,it
 
 @allure.feature("电商-商品模块")
 @allure.story("正常业务流")
+@allure.id("ecommerce_items_006")
 @allure.title("用户A成功删除自己发布的商品，断言200")
 def test_user_delete_own_item_success(ecommerce_item_api, user_headers_factory, db_message,item_payload_factory):
     # 1. 用户A 发商品
@@ -69,6 +81,7 @@ def item_test_data():
     with open(DATA_FILE, "r", encoding="utf-8") as file:
         return yaml.safe_load(file)
 
+@allure.id("ecommerce_items_004")
 @pytest.mark.parametrize(
     "data",
     item_test_data()
@@ -88,6 +101,7 @@ def test_create_item_with_different_price(ecommerce_item_api,user_headers_factor
 
 # 测试“端到端”全链路的验证：注册登录->发布商品->查询商品->校验数据库是否落库
 @allure.feature("电商-商品模块")
+@allure.id("ecommerce_items_007")
 @allure.story("端到端全链路验证")
 def test_full_e2e_create_and_quary_item(ecommerce_item_api,user_headers_factory,db_message,item_payload_factory):
     #user_headers参数会调用夹具自动完成注册登录得到token，所以下面先发布商品
@@ -119,6 +133,7 @@ def test_full_e2e_create_and_quary_item(ecommerce_item_api,user_headers_factory,
 #-----------------------------------------------------------------------------------------------------------------------
 
 @allure.feature("电商-商品模块")
+@allure.id("ecommerce_items_008")
 @allure.story("安全防御-水平越权")
 @allure.title("用户B尝试删除用户A的商品，断言403拒绝")
 def test_horizontal_privilege_escalation(ecommerce_item_api, user_headers_factory, db_message):
@@ -143,3 +158,42 @@ def test_horizontal_privilege_escalation(ecommerce_item_api, user_headers_factor
     # 3. 查库验证：A的商品安然无恙，没有被 B 删掉
     db_message.execute("SELECT id FROM items WHERE id = %s", (item_id,))
     assert db_message.fetchone() is not None
+
+
+@allure.id("ecommerce_items_002")
+@allure.feature("电商-商品模块")
+@allure.story("安全防御-鉴权")
+@allure.title("不带 Token 发布商品，断言 401")
+def test_create_item_without_token(ecommerce_item_api, item_payload_factory):
+    payload = item_payload_factory()
+    response = ecommerce_item_api.post_items(payload)
+    assert_status(response, 401, "无 Token 发布商品")
+    assert_json(response, detail="未登录")
+
+
+@allure.id("ecommerce_items_003")
+@allure.feature("电商-商品模块")
+@allure.story("安全防御-鉴权")
+@allure.title("伪造 Token 发布商品，断言 401")
+def test_create_item_with_forged_token(ecommerce_item_api, item_payload_factory):
+    payload = item_payload_factory()
+    forged_headers = {"Authorization": "Bearer forged.token.value"}
+    response = ecommerce_item_api.post_items(payload, headers=forged_headers)
+    assert_status(response, 401, "伪造 Token 发布商品")
+    assert_json(response, detail="Token无效")
+
+
+@allure.id("ecommerce_items_009")
+@allure.feature("电商-商品模块")
+@allure.story("接口契约校验")
+@allure.title("发布商品响应体符合 JSON Schema 契约")
+def test_create_item_response_schema(ecommerce_item_api, user_headers_factory, item_payload_factory):
+    headers = user_headers_factory()
+    payload = item_payload_factory()
+    response = ecommerce_item_api.post_items(payload, headers=headers)
+    assert_status(response, 200, "发布商品")
+
+    try:
+        jsonschema.validate(instance=response.json(), schema=load_schema("item_created.schema.json"))
+    except jsonschema.ValidationError as exc:
+        raise AssertionError(f"响应契约不符：{exc.message}\n响应体：{response.text}")

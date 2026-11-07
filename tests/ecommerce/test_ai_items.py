@@ -23,7 +23,8 @@ def load_ai_data():
 @allure.story("AI 生成的极限异常测试")
 class TestAIItems:
 
-    # 2. 将 AI 数据直接传给 parametrize
+    # ecommerce_ai_001
+    @allure.id("ecommerce_ai_001")
     @pytest.mark.parametrize("ai_data", load_ai_data())
     @allure.title("AI 用例: {ai_data[case_name]}")
     def test_create_item_with_ai_data(self, ecommerce_item_api, user_headers_factory, ai_data):
